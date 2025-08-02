@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Пользователь, Комната } from '@/types';
 import { useWebRTC } from '@/hooks/useWebRTC';
+import { Mic, MicOff, PhoneOff, Users, Volume2, Radio } from 'lucide-react';
 
 interface VoiceRoomProps {
   комната: Комната;
@@ -30,100 +31,110 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     микрофон_включен,
     загружается,
     ошибка,
-    получить_микрофон,
-    подключиться_к_пользователю,
     переключить_микрофон,
-    очистить
-  } = useWebRTC({
-    пользователь_id: текущий_пользователь.id,
-    комната_id: комната.id,
-    socket,
-    на_получение_потока: (поток: MediaStream, пользователь_id: string) => {
-      setАудио_потоки(prev => new Map(prev.set(пользователь_id, поток)));
+    получить_микрофон,
+    очистить,
+    подключиться_к_пользователю,
+    обработать_удаленный_поток,
+    обработать_отключение_пользователя
+  } = useWebRTC(комната.id, текущий_пользователь.id, socket);
+
+  // Воспроизведение аудио от других участников
+  useEffect(() => {
+    аудио_потоки.forEach((поток, пользователь_id) => {
+      if (пользователь_id === текущий_пользователь.id) return;
+
+      let аудио = аудио_refs.current.get(пользователь_id);
       
-      // Создаем аудио элемент для воспроизведения
-      const audio = new Audio();
-      audio.srcObject = поток;
-      audio.autoplay = true;
-      audio.volume = 0.8;
-      аудио_refs.current.set(пользователь_id, audio);
-    },
-    на_отключение_пользователя: (пользователь_id: string) => {
-      setАудио_потоки(prev => {
-        const новые = new Map(prev);
-        новые.delete(пользователь_id);
-        return новые;
-      });
-      
-      // Удаляем аудио элемент
-      const audio = аудио_refs.current.get(пользователь_id);
-      if (audio) {
-        audio.pause();
-        audio.srcObject = null;
+      if (!аудио) {
+        аудио = new Audio();
+        аудио.autoplay = true;
+        аудио_refs.current.set(пользователь_id, аудио);
+      }
+
+      if (аудио.srcObject !== поток) {
+        аудио.srcObject = поток;
+      }
+    });
+
+    // Удаляем аудио элементы для отключившихся пользователей
+    аудио_refs.current.forEach((аудио, пользователь_id) => {
+      if (!аудио_потоки.has(пользователь_id)) {
+        аудио.srcObject = null;
         аудио_refs.current.delete(пользователь_id);
       }
-    }
-  });
+    });
+  }, [аудио_потоки, текущий_пользователь.id]);
 
-  // Обработчик переключения микрофона
-  const обработать_переключение_микрофона = async () => {
-    try {
-      if (!локальный_поток) {
-        await получить_микрофон();
-      } else {
-        переключить_микрофон();
-      }
-    } catch (error) {
-      console.error('Ошибка переключения микрофона:', error);
-    }
-  };
+  // Обработка удаленных потоков
+  useEffect(() => {
+    const удаленный_поток_обработчик = (пользователь_id: string, поток: MediaStream) => {
+      setАудио_потоки(prev => new Map(prev).set(пользователь_id, поток));
+    };
 
-  // Определение активности речи
+    const отключение_обработчик = (пользователь_id: string) => {
+      setАудио_потоки(prev => {
+        const новые_потоки = new Map(prev);
+        новые_потоки.delete(пользователь_id);
+        return новые_потоки;
+      });
+    };
+
+    обработать_удаленный_поток(удаленный_поток_обработчик);
+    обработать_отключение_пользователя(отключение_обработчик);
+  }, [обработать_удаленный_поток, обработать_отключение_пользователя]);
+
+  // Анализ аудио для индикации речи
   useEffect(() => {
     if (!локальный_поток) return;
 
-    const аудио_контекст = new AudioContext();
-    const источник = аудио_контекст.createMediaStreamSource(локальный_поток);
-    const анализатор = аудио_контекст.createAnalyser();
-    
-    анализатор.fftSize = 256;
-    источник.connect(анализатор);
-    
-    const данные = new Uint8Array(анализатор.frequencyBinCount);
-    let говорит = false;
-    
-    const проверить_речь = () => {
-      анализатор.getByteFrequencyData(данные);
-      const громкость = данные.reduce((a, b) => a + b) / данные.length;
-      const новое_состояние = громкость > 50 && микрофон_включен;
+    const audio_context = new AudioContext();
+    const analyser = audio_context.createAnalyser();
+    const microphone = audio_context.createMediaStreamSource(локальный_поток);
+    const javascript_node = audio_context.createScriptProcessor(2048, 1, 1);
+
+    analyser.smoothingTimeConstant = 0.8;
+    analyser.fftSize = 1024;
+
+    microphone.connect(analyser);
+    analyser.connect(javascript_node);
+    javascript_node.connect(audio_context.destination);
+
+    javascript_node.onaudioprocess = () => {
+      const array = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(array);
       
-      if (новое_состояние !== говорит) {
-        говорит = новое_состояние;
-        
-        // Обновляем локальное состояние
+      const average = array.reduce((a, b) => a + b) / array.length;
+      const говорит = микрофон_включен && average > 30;
+
+      if (говорит && !говорящие_пользователи.has(текущий_пользователь.id)) {
+        socket?.send(JSON.stringify({
+          тип: 'говорит',
+          пользователь_id: текущий_пользователь.id,
+          комната_id: комната.id,
+          говорит: true
+        }));
+        setГоворящие_пользователи(prev => new Set(prev).add(текущий_пользователь.id));
+      } else if (!говорит && говорящие_пользователи.has(текущий_пользователь.id)) {
+        socket?.send(JSON.stringify({
+          тип: 'говорит',
+          пользователь_id: текущий_пользователь.id,
+          комната_id: комната.id,
+          говорит: false
+        }));
         setГоворящие_пользователи(prev => {
           const новые = new Set(prev);
-          if (говорит) {
-            новые.add(текущий_пользователь.id);
-          } else {
-            новые.delete(текущий_пользователь.id);
-          }
+          новые.delete(текущий_пользователь.id);
           return новые;
         });
-        
-        // Уведомляем сервер
-        if (socket && socket.уведомить_о_речи) {
-          socket.уведомить_о_речи(говорит, комната.id);
-        }
       }
-      
-      requestAnimationFrame(проверить_речь);
     };
-    
-    проверить_речь();
-    
+
     return () => {
-      аудио_контекст.close();
+      javascript_node.disconnect();
+      microphone.disconnect();
+      analyser.disconnect();
+      audio_context.close();
     };
   }, [локальный_поток, микрофон_включен, socket, текущий_пользователь.id, комната.id]);
 
@@ -145,26 +156,30 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       }
     });
 
-    // Переключение микрофона других участников
+    // Обновление состояния микрофона
     const unsubscribe2 = подписаться('микрофон-переключен', (данные: any) => {
-      setУчастники(prev => prev.map(участник => 
-        участник.id === данные.пользователь_id 
-          ? { ...участник, микрофон_включен: данные.включен }
-          : участник
-      ));
+      if (данные.комната_id === комната.id && данные.пользователь_id !== текущий_пользователь.id) {
+        setУчастники(prev => prev.map(у => 
+          у.id === данные.пользователь_id 
+            ? { ...у, микрофон_включен: данные.включен }
+            : у
+        ));
+      }
     });
 
-    // Индикация речи других участников
+    // Обновление индикации речи
     const unsubscribe3 = подписаться('говорит', (данные: any) => {
-      setГоворящие_пользователи(prev => {
-        const новые = new Set(prev);
+      if (данные.комната_id === комната.id) {
         if (данные.говорит) {
-          новые.add(данные.пользователь_id);
+          setГоворящие_пользователи(prev => new Set(prev).add(данные.пользователь_id));
         } else {
-          новые.delete(данные.пользователь_id);
+          setГоворящие_пользователи(prev => {
+            const новые = new Set(prev);
+            новые.delete(данные.пользователь_id);
+            return новые;
+          });
         }
-        return новые;
-      });
+      }
     });
 
     return () => {
@@ -182,169 +197,120 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       очистить();
       // Очищаем все аудио элементы
       аудио_refs.current.forEach(audio => {
-        audio.pause();
         audio.srcObject = null;
       });
       аудио_refs.current.clear();
     };
-  }, [получить_микрофон, очистить]);
+  }, []);
 
-  // Показать ошибку загрузки
+  if (загружается) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <div className="text-[var(--text-secondary)]">Подключение к комнате...</div>
+      </div>
+    );
+  }
+
   if (ошибка) {
     return (
-      <div className="flex items-center justify-center h-full p-4">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">⚠️</div>
-          <div className="text-xl font-bold text-red-600 mb-2">Ошибка доступа к микрофону</div>
-          <div className="text-gray-600 mb-4">{ошибка}</div>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
-          >
-            Обновить страницу
-          </button>
+          <div className="text-[var(--danger)] mb-2">Ошибка подключения</div>
+          <div className="text-sm text-[var(--text-secondary)]">{ошибка}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Заголовок комнаты */}
-      <div className="bg-white dark:bg-gray-800 shadow-md p-4 border-b">
-        <div className="flex items-center justify-between">
+      <header className="border-b border-[var(--border-color)] px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-white">{комната.название}</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {участники.length} / {комната.максимум_участников} участников
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{комната.название}</h1>
+            <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />
+              {участники.length} участник{участники.length > 1 ? 'ов' : ''}
             </p>
-            {загружается && (
-              <p className="text-xs text-blue-500">Подключение к голосовому чату...</p>
-            )}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={на_покинуть_комнату}
-              className="p-2 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
-            >
-              ❌
-            </button>
-          </div>
+          <button
+            onClick={на_покинуть_комнату}
+            className="px-4 py-2 text-[var(--danger)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors flex items-center gap-2"
+          >
+            <PhoneOff className="w-4 h-4" />
+            Покинуть
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Участники комнаты */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {участники.map(участник => {
-            const говорит = говорящие_пользователи.has(участник.id);
-            const имеет_аудио = аудио_потоки.has(участник.id);
-            
-            return (
-              <div
-                key={участник.id}
-                className={`relative p-4 rounded-xl bg-white dark:bg-gray-800 shadow-md transition-all duration-200 ${
-                  говорит ? 'ring-2 ring-green-400 shadow-lg' : ''
-                }`}
-              >
-                <div className="text-center">
-                  {/* Аватар с индикацией речи */}
-                  <div className={`text-3xl mb-2 transition-transform duration-200 ${
-                    говорит ? 'scale-110' : ''
-                  }`}>
-                    {участник.аватар || '👤'}
-                  </div>
-                  
-                  {/* Имя пользователя */}
-                  <div className="font-medium text-gray-800 dark:text-white text-sm mb-2">
-                    {участник.имя}
-                    {участник.id === текущий_пользователь.id && ' (Вы)'}
-                  </div>
-                  
-                  {/* Статус микрофона и подключения */}
-                  <div className="flex justify-center items-center gap-2">
-                    <span className={`text-lg ${участник.микрофон_включен ? 'text-green-500' : 'text-red-500'}`}>
-                      {участник.микрофон_включен ? '🎤' : '🔇'}
-                    </span>
-                    
-                    {участник.id !== текущий_пользователь.id && (
-                      <span className={`text-xs ${имеет_аудио ? 'text-green-600' : 'text-gray-400'}`}>
-                        {имеет_аудио ? '🔊' : '📶'}
-                      </span>
-                    )}
-                    
-                    {говорит && (
-                      <span className="text-xs text-green-500 animate-pulse">
-                        🗣️
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Индикатор качества соединения */}
-                  {участник.id !== текущий_пользователь.id && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      {имеет_аудио ? 'Подключен' : 'Подключается...'}
-                    </div>
+      {/* Список участников */}
+      <div className="max-w-4xl mx-auto px-6 py-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {участники.map(участник => (
+            <div
+              key={участник.id}
+              className={`
+                p-4 rounded-lg border transition-all duration-200
+                ${говорящие_пользователи.has(участник.id) 
+                  ? 'border-[var(--accent)] bg-[var(--bg-secondary)]' 
+                  : 'border-[var(--border-color)] bg-[var(--bg-primary)]'
+                }
+              `}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className={`
+                  w-16 h-16 rounded-full flex items-center justify-center mb-3
+                  ${говорящие_пользователи.has(участник.id)
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+                  }
+                `}>
+                  {участник.имя.charAt(0).toUpperCase()}
+                </div>
+                <div className="font-medium text-[var(--text-primary)] mb-1">
+                  {участник.имя}
+                  {участник.id === текущий_пользователь.id && ' (Вы)'}
+                </div>
+                <div className="flex items-center gap-2">
+                  {участник.микрофон_включен ? (
+                    <Mic className="w-4 h-4 text-[var(--text-secondary)]" />
+                  ) : (
+                    <MicOff className="w-4 h-4 text-[var(--danger)]" />
+                  )}
+                  {говорящие_пользователи.has(участник.id) && (
+                    <Volume2 className="w-4 h-4 text-[var(--accent)] animate-pulse" />
                   )}
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-        
-        {/* Сообщение если только один участник */}
-        {участники.length === 1 && (
-          <div className="text-center mt-8 text-gray-500">
-            <div className="text-4xl mb-2">👥</div>
-            <div className="text-lg mb-1">Вы один в комнате</div>
-            <div className="text-sm">Поделитесь ссылкой, чтобы пригласить друзей!</div>
-          </div>
-        )}
       </div>
 
-      {/* Управление микрофоном */}
-      <div className="bg-white dark:bg-gray-800 p-4 border-t">
-        <div className="flex justify-center items-center gap-4">
-          {/* Основная кнопка микрофона */}
-          <button
-            onClick={обработать_переключение_микрофона}
-            disabled={загружается}
-            className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all duration-200 ${
-              загружается 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : микрофон_включен 
-                  ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl' 
-                  : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl'
-            }`}
-          >
-            {загружается ? '⏳' : микрофон_включен ? '🎤' : '🔇'}
-          </button>
-        </div>
-        
-        {/* Описание и статус */}
-        <div className="mt-2 text-center">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            {загружается 
-              ? 'Подключение к микрофону...' 
-              : `Нажмите для ${микрофон_включен ? 'выключения' : 'включения'} микрофона`
-            }
+      {/* Панель управления */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-primary)] border-t border-[var(--border-color)]">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={переключить_микрофон}
+              className={`
+                p-3 rounded-full transition-all duration-200
+                ${микрофон_включен 
+                  ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]' 
+                  : 'bg-[var(--danger)] text-white hover:opacity-90'
+                }
+              `}
+              title={микрофон_включен ? 'Выключить микрофон' : 'Включить микрофон'}
+            >
+              {микрофон_включен ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+            </button>
+            
+            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <Radio className="w-4 h-4" />
+              {микрофон_включен ? 'Микрофон включен' : 'Микрофон выключен'}
+            </div>
           </div>
-          
-          {локальный_поток && (
-            <div className="text-xs text-green-600 mt-1">
-              ✅ Микрофон подключен
-            </div>
-          )}
-        </div>
-        
-        {/* Дополнительная информация */}
-        <div className="mt-3 text-center text-xs text-gray-500">
-          <div>WebRTC соединений: {аудио_потоки.size}</div>
-          {говорящие_пользователи.size > 0 && (
-            <div className="text-green-600">
-              Говорят: {говорящие_пользователи.size} чел.
-            </div>
-          )}
         </div>
       </div>
     </div>

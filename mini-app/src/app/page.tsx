@@ -167,16 +167,17 @@ export default function Home() {
   // Показываем загрузку пока инициализируется приложение
   if (состояние.загружается || !состояние.текущий_пользователь) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="text-6xl">🎤</div>
-          <div className="text-xl font-bold text-gray-800 dark:text-white">
+          <div className="w-16 h-16 mx-auto rounded-full bg-[var(--bg-secondary)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin"></div>
+          </div>
+          <div className="text-lg font-medium text-[var(--text-primary)]">
             Голосовые комнаты
           </div>
-          <div className="text-gray-600 dark:text-gray-300">
+          <div className="text-sm text-[var(--text-secondary)]">
             Инициализация приложения...
           </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
         </div>
       </div>
     );
@@ -185,20 +186,24 @@ export default function Home() {
   // Показываем ошибку подключения
   if (!состояние.подключено_к_серверу && !загружается_сокет) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50 to-pink-100 dark:from-red-900 dark:to-pink-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
-          <div className="text-6xl">⚠️</div>
-          <div className="text-xl font-bold text-gray-800 dark:text-white">
+          <div className="w-16 h-16 mx-auto rounded-full bg-[var(--danger)] bg-opacity-10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-[var(--danger)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="text-lg font-medium text-[var(--text-primary)]">
             Нет подключения к серверу
           </div>
-          <div className="text-gray-600 dark:text-gray-300">
+          <div className="text-sm text-[var(--text-secondary)]">
             Проверьте интернет-соединение и попробуйте снова
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors"
+            className="px-4 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-lg transition-colors border border-[var(--border-color)]"
           >
-            🔄 Перезагрузить
+            Перезагрузить
           </button>
         </div>
       </div>
@@ -206,21 +211,19 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Статус подключения */}
-      <div className={`
-        w-full py-2 px-4 text-center text-sm font-medium
-        ${состояние.подключено_к_серверу 
-          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-          : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-        }
-      `}>
-        <div>{состояние.подключено_к_серверу ? '🟢 Подключено к серверу' : '🟡 Подключение...'}</div>
-        <div className="text-xs opacity-70">
-          Telegram Web App {телеграм_версия} | 
-          Alert: {поддерживается('showAlert') ? '✅' : '❌'} | 
-          Confirm: {поддерживается('showConfirm') ? '✅' : '❌'} |
-          Popup: {поддерживается('showPopup') ? '✅' : '❌'}
+      <div className="border-b border-[var(--border-color)]">
+        <div className="max-w-4xl mx-auto px-6 py-2 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${состояние.подключено_к_серверу ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'} animate-pulse`}></div>
+            <span className="text-[var(--text-secondary)]">
+              {состояние.подключено_к_серверу ? 'Подключено' : 'Подключение...'}
+            </span>
+          </div>
+          <div className="text-[var(--text-tertiary)]">
+            v{телеграм_версия}
+          </div>
         </div>
       </div>
 
@@ -244,15 +247,26 @@ export default function Home() {
 
       {/* Отображение ошибок */}
       {состояние.ошибка && (
-        <div className="fixed bottom-4 left-4 right-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <span>❌ {состояние.ошибка}</span>
-            <button
-              onClick={() => setСостояние(prev => ({ ...prev, ошибка: null }))}
-              className="ml-4 text-red-500 hover:text-red-700"
-            >
-              ✕
-            </button>
+        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto">
+          <div className="bg-[var(--bg-primary)] border border-[var(--danger)] rounded-lg shadow-[var(--shadow-md)] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-[var(--danger)] bg-opacity-10 flex-shrink-0 flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-[var(--danger)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <div className="text-sm text-[var(--text-primary)]">{состояние.ошибка}</div>
+              </div>
+              <button
+                onClick={() => setСостояние(prev => ({ ...prev, ошибка: null }))}
+                className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
