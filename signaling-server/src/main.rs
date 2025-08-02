@@ -172,7 +172,7 @@ impl СерверСостояние {
 
     // Отправка сообщения пользователю
     pub async fn отправить_пользователю(&self, пользователь_id: &str, сообщение: ОтветСервера) {
-        if let Some(mut ws) = self.websockets.get_mut(пользователь_id) {
+        if let Some(sender) = self.websockets.get(пользователь_id) {
             let json = match serde_json::to_string(&сообщение) {
                 Ok(json) => json,
                 Err(e) => {
@@ -181,7 +181,7 @@ impl СерверСостояние {
                 }
             };
 
-            if let Err(e) = ws.send(Message::Text(json)).await {
+            if let Err(e) = sender.send(Message::Text(json)) {
                 error!("Ошибка отправки сообщения пользователю {}: {}", пользователь_id, e);
                 self.websockets.remove(пользователь_id);
             }
@@ -303,9 +303,20 @@ async fn обработать_соединение(
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let пользователь_id = Uuid::new_v4().to_string();
     
-    // Добавляем соединение в карту
-    состояние.websockets.insert(пользователь_id.clone(), ws_stream);
+    // Создаем канал для отправки сообщений
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    состояние.websockets.insert(пользователь_id.clone(), tx);
 
+    // Задача для отправки сообщений
+    let send_task = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if ws_sender.send(msg).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Основной цикл обработки входящих сообщений
     while let Some(msg) = ws_receiver.next().await {
         match msg {
             Ok(Message::Text(text)) => {
@@ -327,6 +338,9 @@ async fn обработать_соединение(
             _ => {}
         }
     }
+
+    // Отменяем задачу отправки
+    send_task.abort();
 
     // Очистка при отключении
     состояние.websockets.remove(&пользователь_id);
@@ -454,9 +468,9 @@ async fn обработать_сообщение(
         СообщениеВебСокета::WebRTCСигнал { от, к, комната, данные } => {
             // Пересылаем WebRTC сигнал получателю
             состояние.отправить_пользователю(&к, ОтветСервера::WebRTCСигнал {
-                от,
-                к,
-                комната,
+                от: от.clone(),
+                к: к.clone(),
+                комната: комната.clone(),
                 данные,
             }).await;
         }
@@ -469,8 +483,8 @@ async fn обработать_сообщение(
             
             // Уведомляем участников комнаты
             состояние.отправить_в_комнату(&комната_id, ОтветСервера::МикрофонПереключен {
-                пользователь_id: user_id,
-                комната_id,
+                пользователь_id: user_id.clone(),
+                комната_id: комната_id.clone(),
                 включен,
             }, None).await;
         }
@@ -483,8 +497,8 @@ async fn обработать_сообщение(
             
             // Уведомляем участников комнаты
             состояние.отправить_в_комнату(&комната_id, ОтветСервера::Говорит {
-                пользователь_id: user_id,
-                комната_id,
+                пользователь_id: user_id.clone(),
+                комната_id: комната_id.clone(),
                 говорит,
             }, None).await;
         }
@@ -513,7 +527,7 @@ async fn main() -> Result<()> {
     env_logger::init();
     
     let состояние = СерверСостояние::new();
-    let addr = "127.0.0.1:8080";
+    let addr = "0.0.0.0:8080";
     let listener = TcpListener::bind(&addr).await?;
     
     info!("WebSocket сервер запущен на {}", addr);

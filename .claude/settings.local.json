@@ -5,7 +5,11 @@
       "Bash(cargo run:*)",
       "Bash(npx create-next-app:*)",
       "Bash(npm install)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

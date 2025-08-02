@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Пользователь, Комната, СостояниеПриложения } from '@/types';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 import { useSocket } from '@/hooks/useSocket';
-import { RoomsList } from '@/components/RoomsList';
-import { VoiceRoom } from '@/components/VoiceRoom';
+import { SimpleRoomsList } from '@/components/SimpleRoomsList';
+import { SimpleVoiceRoom } from '@/components/SimpleVoiceRoom';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
@@ -235,14 +235,14 @@ export default function Home() {
 
       {/* Основной контент */}
       {состояние.активная_комната ? (
-        <VoiceRoom
+        <SimpleVoiceRoom
           комната={состояние.активная_комната}
           текущий_пользователь={состояние.текущий_пользователь}
           socket={socket}
           на_покинуть_комнату={обработать_выход_из_комнаты}
         />
       ) : (
-        <RoomsList
+        <SimpleRoomsList
           комнаты={состояние.комнаты}
           пользователь={состояние.текущий_пользователь}
           на_присоединение={обработать_присоединение_к_комнате}

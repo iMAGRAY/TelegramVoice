@@ -301,11 +301,11 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                 key={участник.id}
                 className={`
                   relative p-4 rounded-xl transition-all duration-200
-                  \${говорящие.has(участник.id) 
+                  ${говорящие.has(участник.id) 
                     ? 'bg-green-100 dark:bg-green-900 ring-2 ring-green-400' 
                     : 'bg-white dark:bg-gray-800'
                   }
-                  \${участник.id === текущий_пользователь.id ? 'border-2 border-blue-400' : ''}
+                  ${участник.id === текущий_пользователь.id ? 'border-2 border-blue-400' : ''}
                   shadow-md
                 `}
               >
@@ -320,7 +320,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                   
                   {/* Индикатор микрофона */}
                   <div className=\"mt-2 flex justify-center\">
-                    <span className={`text-lg \${участник.микрофон_включен ? 'text-green-500' : 'text-red-500'}`}>
+                    <span className={`text-lg ${участник.микрофон_включен ? 'text-green-500' : 'text-red-500'}`}>
                       {участник.микрофон_включен ? '🎤' : '🔇'}
                     </span>
                   </div>
@@ -348,11 +348,11 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
             disabled={загружается}
             className={`
               w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all duration-200
-              \${микрофон_включен 
+              ${микрофон_включен 
                 ? 'bg-green-500 hover:bg-green-600 text-white' 
                 : 'bg-red-500 hover:bg-red-600 text-white'
               }
-              \${загружается ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'}
+              ${загружается ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'}
             `}
           >
             {загружается ? '⏳' : (микрофон_включен ? '🎤' : '🔇')}

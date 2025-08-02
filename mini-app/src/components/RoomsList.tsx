@@ -237,7 +237,7 @@ export const RoomsList: React.FC<RoomsListProps> = ({
               key={комната.id}
               className={`
                 bg-white dark:bg-gray-800 p-4 rounded-lg border-2 transition-all cursor-pointer
-                \${комната.участники.includes(пользователь.id) 
+                ${комната.участники.includes(пользователь.id) 
                   ? 'border-green-400 bg-green-50 dark:bg-green-900' 
                   : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
                 }
