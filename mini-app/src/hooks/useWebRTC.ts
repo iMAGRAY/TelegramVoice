@@ -91,7 +91,7 @@ export const useWebRTC = ({
           время: Date.now()
         };
         
-        socket?.emit('webrtc-signal', сообщение);
+        socket?.отправить_сообщение('webrtc-signal', сигнал, пользователь_id, комната_id);
       });
 
       // Получение удаленного потока
@@ -194,12 +194,8 @@ export const useWebRTC = ({
       setМикрофон_включен(новое_состояние);
       
       // Уведомить других участников
-      if (socket) {
-        socket.emit('микрофон-переключен', {
-          пользователь_id,
-          комната_id,
-          включен: новое_состояние
-        });
+      if (socket && socket.переключить_микрофон) {
+        socket.переключить_микрофон(новое_состояние, комната_id);
       }
       
       return новое_состояние;
@@ -230,11 +226,11 @@ export const useWebRTC = ({
   }, []);
 
   useEffect(() => {
-    if (socket) {
-      socket.on('webrtc-signal', обработать_сигнал);
+    if (socket && socket.подписаться) {
+      const unsubscribe = socket.подписаться('webrtc-signal', обработать_сигнал);
       
       return () => {
-        socket.off('webrtc-signal', обработать_сигнал);
+        unsubscribe();
       };
     }
   }, [socket, обработать_сигнал]);

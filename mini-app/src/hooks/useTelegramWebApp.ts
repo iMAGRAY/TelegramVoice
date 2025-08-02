@@ -86,18 +86,32 @@ export const useTelegramWebApp = () => {
 
   const показатьУведомление = (сообщение: string) => {
     if (webApp) {
-      webApp.showAlert(сообщение);
+      try {
+        webApp.showAlert(сообщение);
+      } catch (error) {
+        // Fallback для старых версий - используем обычный alert
+        console.warn('showAlert не поддерживается, используем fallback:', error);
+        alert(сообщение);
+      }
+    } else {
+      alert(сообщение);
     }
   };
 
   const показатьПодтверждение = (сообщение: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (webApp) {
-        webApp.showConfirm(сообщение, (confirmed) => {
-          resolve(confirmed);
-        });
+        try {
+          webApp.showConfirm(сообщение, (confirmed) => {
+            resolve(confirmed);
+          });
+        } catch (error) {
+          // Fallback для старых версий - используем обычный confirm
+          console.warn('showConfirm не поддерживается, используем fallback:', error);
+          resolve(confirm(сообщение));
+        }
       } else {
-        resolve(false);
+        resolve(confirm(сообщение));
       }
     });
   };
