@@ -39,7 +39,8 @@
       "Bash(cargo build:*)",
       "Bash(taskkill:*)",
       "Bash(set RUST_LOG=info)",
-      "Bash(start /B cargo run --manifest-path signaling-server/Cargo.toml)"
+      "Bash(start /B cargo run --manifest-path signaling-server/Cargo.toml)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }
