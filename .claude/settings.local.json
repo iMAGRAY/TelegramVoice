@@ -4,7 +4,8 @@
       "Bash(cargo check:*)",
       "Bash(cargo run:*)",
       "Bash(npx create-next-app:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(ssh:*)"
     ],
     "deny": []
   }
