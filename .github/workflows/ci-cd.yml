@@ -48,15 +48,25 @@ jobs:
         cd signaling-server
         cargo build --release
 
-  # Только сборка и тестирование (развертывание только локально)
-  notify:
+  # Автоматическое развертывание на сервере (только для main ветки)
+  deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
     
     steps:
-    - name: Уведомление о готовности к развертыванию
-      run: |
-        echo "✅ Сборка прошла успешно!"
-        echo "🚀 Готово к развертыванию на сервере"
-        echo "📋 Для развертывания выполните локально: ./auto-deploy.sh"
+    - name: Checkout кода
+      uses: actions/checkout@v4
+      
+    - name: Развертывание на сервере
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+          git pull origin main
+          ./deploy.sh

@@ -27,7 +27,8 @@
       "mcp__postgresql-api-ssh-mcp-server__mcp_ssh_manager",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

@@ -113,14 +113,14 @@ pm2 restart ecosystem.config.js
 
 ### Настройка CI/CD
 1. Запустить `./dev.sh` для настройки pre-commit хуков
-2. Push в main автоматически запускает сборку и тестирование
-3. Развертывание выполняется локально через `./auto-deploy.sh`
+2. Настроить GitHub Secrets для автоматического развертывания
+3. Push в main автоматически запускает сборку, тестирование и развертывание
 
 ### Workflow GitHub Actions
 ```
-Push → Build & Test → Уведомление о готовности
+Push → Build & Test → Auto Deploy на сервер (только main ветка)
 PR → Code Quality Checks + Security Audit
-Развертывание → Локально через ./auto-deploy.sh (использует .env)
+Локальное развертывание → ./auto-deploy.sh (альтернатива)
 ```
 
 ## Правила разработки
