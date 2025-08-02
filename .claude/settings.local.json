@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npm install)"
+    ],
+    "deny": []
+  }
+}
