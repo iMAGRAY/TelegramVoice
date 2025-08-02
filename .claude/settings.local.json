@@ -12,7 +12,19 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(scp:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude config list --scope user)",
+      "Bash(claude config list)",
+      "Bash(claude mcp:*)",
+      "Bash(claude config path --scope user)",
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(jq:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(ping:*)",
+      "mcp__postgresql-api-ssh-mcp-server__mcp_psql_manager",
+      "mcp__postgresql-api-ssh-mcp-server__mcp_ssh_manager"
     ],
     "deny": []
   }

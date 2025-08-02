@@ -1,0 +1,12 @@
+{
+  "telegram_voice_ssh": {
+    "host": "89.23.115.156",
+    "port": 22,
+    "username": "root",
+    "password": "aa29dd0b54b6edfe3fd07970714561e7:cb90bfbd0306ecd26ea8045cd3014867",
+    "type": "ssh",
+    "encrypted": true,
+    "created_at": "2025-08-02T20:01:54.439Z",
+    "updated_at": "2025-08-02T20:01:54.439Z"
+  }
+}

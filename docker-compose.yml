@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  signaling-server:
+    build: 
+      context: ./signaling-server
+      dockerfile: Dockerfile
+    container_name: telegram-voice-signaling
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - WEBSOCKET_PORT=8080
+    networks:
+      - telegram-voice-network
+
+  mini-app:
+    build:
+      context: ./mini-app
+      dockerfile: Dockerfile
+    container_name: telegram-voice-app
+    restart: always
+    volumes:
+      - ./mini-app/out:/app/out
+    depends_on:
+      - signaling-server
+    networks:
+      - telegram-voice-network
+
+networks:
+  telegram-voice-network:
+    driver: bridge
