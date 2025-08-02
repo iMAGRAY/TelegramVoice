@@ -33,7 +33,12 @@
       "mcp__archlens__export_ai_compact",
       "Bash(find:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs"
+      "mcp__context7__get-library-docs",
+      "Bash(start /B cargo run)",
+      "Bash(npm run dev:*)",
+      "Bash(cargo build:*)",
+      "Bash(taskkill:*)",
+      "Bash(set RUST_LOG=info)"
     ],
     "deny": []
   }

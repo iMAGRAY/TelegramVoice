@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Локальный тест WebSocket</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>Тест WebSocket соединения (Локально)</h1>
+    <div id="status">Не подключено</div>
+    <button onclick="connect()">Подключиться</button>
+    <button onclick="disconnect()">Отключиться</button>
+    <div id="log" style="white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 10px; height: 300px; overflow-y: auto;"></div>
+    
+    <script>
+        let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 3;
+        
+        const log = (msg) => {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${msg}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+
+        const status = (msg) => {
+            document.getElementById('status').textContent = msg;
+        };
+
+        function connect() {
+            log('Начинаем подключение...');
+            
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                log('Уже подключено или подключается');
+                return;
+            }
+            
+            try {
+                const userId = 'test-' + Math.random().toString(36).substr(2, 9);
+                const params = new URLSearchParams({
+                    пользователь_id: userId,
+                    имя: 'Тестовый пользователь',
+                    телеграм_id: '123456'
+                });
+                
+                const wsUrl = `ws://localhost:8080?${params}`;
+                log(`Подключаемся к: ${wsUrl}`);
+                
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    log('✅ WebSocket подключен успешно!');
+                    status('🟢 Подключено');
+                    reconnectAttempts = 0;
+                    
+                    // Отправляем тестовое сообщение
+                    const msg = {
+                        тип: 'присоединиться',
+                        пользователь: {
+                            id: userId,
+                            имя: 'Тестовый пользователь',
+                            телеграм_id: 123456,
+                            аватар: null,
+                            подключен: true,
+                            в_комнате: null,
+                            микрофон_включен: true,
+                            говорит: false,
+                            последняя_активность: new Date().toISOString()
+                        }
+                    };
+                    
+                    log('Отправляем сообщение: ' + JSON.stringify(msg, null, 2));
+                    ws.send(JSON.stringify(msg));
+                };
+                
+                ws.onmessage = (event) => {
+                    log('📥 Получено сообщение: ' + event.data);
+                };
+                
+                ws.onerror = (error) => {
+                    log('❌ Ошибка WebSocket: ' + error);
+                    status('🔴 Ошибка');
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = (event) => {
+                    log(`⚠️ WebSocket закрыт. Code: ${event.code}, Reason: ${event.reason}`);
+                    status('🔴 Отключено');
+                    ws = null;
+                    
+                    // Попытка переподключения
+                    if (!event.wasClean && reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000);
+                        log(`Попытка переподключения ${reconnectAttempts}/${maxReconnectAttempts} через ${delay}мс...`);
+                        setTimeout(connect, delay);
+                    }
+                };
+                
+            } catch (error) {
+                log('❌ Ошибка создания WebSocket: ' + error);
+                status('🔴 Ошибка');
+            }
+        }
+        
+        function disconnect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('Отключаемся...');
+                ws.close();
+            } else {
+                log('Не подключено');
+            }
+        }
+    </script>
+</body>
+</html>

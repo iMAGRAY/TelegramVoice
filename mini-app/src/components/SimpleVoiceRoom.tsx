@@ -8,6 +8,7 @@ interface VoiceRoomProps {
   комната: Комната;
   текущий_пользователь: Пользователь;
   socket: any;
+  подписаться: (событие: string, обработчик: (...args: any[]) => void) => () => void;
   на_покинуть_комнату: () => void;
 }
 
@@ -15,6 +16,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
   комната,
   текущий_пользователь,
   socket,
+  подписаться,
   на_покинуть_комнату
 }) => {
   const [участники, setУчастники] = useState<Пользователь[]>([текущий_пользователь]);
@@ -130,7 +132,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     if (!socket) return;
 
     // Обновление участников комнаты
-    const unsubscribe1 = socket.подписаться('участники-комнаты-обновлены', (данные: any) => {
+    const unsubscribe1 = подписаться('участники-комнаты-обновлены', (данные: any) => {
       if (данные.комната_id === комната.id) {
         setУчастники(данные.участники);
         
@@ -144,7 +146,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     });
 
     // Переключение микрофона других участников
-    const unsubscribe2 = socket.подписаться('микрофон-переключен', (данные: any) => {
+    const unsubscribe2 = подписаться('микрофон-переключен', (данные: any) => {
       setУчастники(prev => prev.map(участник => 
         участник.id === данные.пользователь_id 
           ? { ...участник, микрофон_включен: данные.включен }
@@ -153,7 +155,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     });
 
     // Индикация речи других участников
-    const unsubscribe3 = socket.подписаться('говорит', (данные: any) => {
+    const unsubscribe3 = подписаться('говорит', (данные: any) => {
       setГоворящие_пользователи(prev => {
         const новые = new Set(prev);
         if (данные.говорит) {
@@ -170,7 +172,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       unsubscribe2();
       unsubscribe3();
     };
-  }, [socket, комната.id, текущий_пользователь.id, подключиться_к_пользователю]);
+  }, [socket, комната.id, текущий_пользователь.id, подключиться_к_пользователю, подписаться]);
 
   // Инициализация микрофона при входе в комнату
   useEffect(() => {
