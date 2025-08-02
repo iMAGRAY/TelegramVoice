@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Проверка сборки
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout кода
+      uses: actions/checkout@v4
+    
+    - name: Установка Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mini-app/package-lock.json
+    
+    - name: Установка Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Установка зависимостей фронтенда
+      run: |
+        cd mini-app
+        npm ci
+    
+    - name: Сборка фронтенда
+      run: |
+        cd mini-app
+        npm run build
+    
+    - name: Проверка Rust кода
+      run: |
+        cd signaling-server
+        cargo check
+    
+    - name: Сборка Rust проекта
+      run: |
+        cd signaling-server
+        cargo build --release
+
+  # Автоматическое развертывание на сервере (только для main ветки)
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Развертывание на сервере
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        script: |
+          cd /root/TelegramVoice
+          ./deploy.sh

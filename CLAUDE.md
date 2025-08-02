@@ -93,21 +93,33 @@ cargo check    # Проверка типов
 
 ### Команды для развертывания на сервере:
 ```bash
-# Обновление кода
+# Автоматическое развертывание (рекомендуется)
 cd /root/TelegramVoice
+./deploy.sh
+
+# Или ручное развертывание:
 git pull origin main
-
-# Сборка фронтенда
-cd mini-app
-npm install
-npm run build
-
-# Сборка backend
-cd ../signaling-server
-cargo build --release
-
-# Перезапуск сервисов
+cd mini-app && npm install && npm run build
+cd ../signaling-server && cargo build --release
 pm2 restart ecosystem.config.js
+```
+
+## CI/CD Pipeline
+
+### Автоматизация
+- **GitHub Actions** - автоматическая сборка и развертывание
+- **Pre-commit хуки** - проверка сборки перед коммитом
+- **Pull Request проверки** - качество кода и безопасность
+
+### Настройка CI/CD
+1. Настроить GitHub Secrets (см. `GITHUB_SECRETS.md`)
+2. Запустить `./dev.sh` для настройки pre-commit хуков
+3. Push в main автоматически запускает развертывание
+
+### Workflow GitHub Actions
+```
+Push → Build & Test → Deploy (только main ветка)
+PR → Code Quality Checks + Security Audit
 ```
 
 ## Правила разработки
