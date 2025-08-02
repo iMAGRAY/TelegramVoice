@@ -70,3 +70,45 @@ jobs:
           cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
           git pull origin main
           ./deploy.sh
+          
+    - name: Пост-развертывание мониторинг
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+          echo "📊 Мониторинг после развертывания..."
+          chmod +x monitor.sh
+          ./monitor.sh
+          
+    - name: Проверка доступности сервисов
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          echo "🌐 Проверка доступности сервисов из внешней сети..."
+          
+          # Проверка WebSocket сервера
+          if curl -s --max-time 5 telnet://${{ secrets.SERVER_HOST }}:8080 > /dev/null; then
+            echo "✅ WebSocket сервер доступен извне"
+          else
+            echo "❌ WebSocket сервер недоступен извне"
+            exit 1
+          fi
+          
+          # Проверка HTTP сервера
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://${{ secrets.SERVER_HOST }}:3000 || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "404" ]; then
+            echo "✅ HTTP сервер доступен извне (код: $HTTP_CODE)"
+          else
+            echo "❌ HTTP сервер недоступен извне (код: $HTTP_CODE)"
+            exit 1
+          fi
+          
+          echo "🎉 Все сервисы успешно развернуты и доступны!"
