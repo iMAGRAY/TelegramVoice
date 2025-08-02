@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Пользователь, Комната, СостояниеПриложения } from '@/types';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
-import { useSocket } from '@/hooks/useSocketIO';
+import { useSocket } from '@/hooks/useSocket';
 import { SimpleRoomsList } from '@/components/SimpleRoomsList';
 import { SimpleVoiceRoom } from '@/components/SimpleVoiceRoom';
 import { v4 as uuidv4 } from 'uuid';

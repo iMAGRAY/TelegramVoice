@@ -28,7 +28,10 @@
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(grep:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "mcp__archlens__analyze_project",
+      "mcp__archlens__export_ai_compact",
+      "Bash(find:*)"
     ],
     "deny": []
   }
