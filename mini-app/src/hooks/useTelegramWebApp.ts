@@ -1,5 +1,53 @@
 import { useEffect, useState } from 'react';
 
+// Проверка поддержки методов в текущей версии Telegram Web App
+const проверить_поддержку_метода = (метод: string, webApp: ТелеграмWebApp | null): boolean => {
+  if (!webApp) return false;
+  
+  // Получаем версию из webApp
+  const версия = webApp.version || '6.0';
+  
+  // Список методов и минимальные версии для их поддержки
+  const требования_версий: Record<string, string> = {
+    'ready': '6.0',
+    'expand': '6.0', 
+    'close': '6.0',
+    'sendData': '6.0',
+    'showAlert': '6.2',
+    'showConfirm': '6.2',
+    'showPopup': '6.9',
+    'showScanQrPopup': '6.4',
+    'closeScanQrPopup': '6.4',
+    'openLink': '6.1',
+    'openTelegramLink': '6.1',
+    'openInvoice': '6.1',
+    'switchInlineQuery': '6.7',
+    'HapticFeedback.impactOccurred': '6.1',
+    'HapticFeedback.notificationOccurred': '6.1',
+    'HapticFeedback.selectionChanged': '6.1'
+  };
+  
+  const требуемая_версия = требования_версий[метод];
+  if (!требуемая_версия) return false;
+  
+  // Простое сравнение версий (предполагаем формат X.Y)
+  const сравнить_версии = (v1: string, v2: string): number => {
+    const части1 = v1.split('.').map(Number);
+    const части2 = v2.split('.').map(Number);
+    
+    for (let i = 0; i < Math.max(части1.length, части2.length); i++) {
+      const num1 = части1[i] || 0;
+      const num2 = части2[i] || 0;
+      
+      if (num1 > num2) return 1;
+      if (num1 < num2) return -1;
+    }
+    return 0;
+  };
+  
+  return сравнить_версии(версия, требуемая_версия) >= 0;
+};
+
 interface ТелеграмПользователь {
   id: number;
   first_name: string;
@@ -61,11 +109,24 @@ export const useTelegramWebApp = () => {
       const tg = window.Telegram.WebApp;
       setWebApp(tg);
       
-      // Инициализация WebApp
-      tg.ready();
+      // Логирование версии для диагностики
+      console.log('Telegram Web App инициализирован:', {
+        версия: tg.version,
+        платформа: tg.platform,
+        поддерживает_showAlert: проверить_поддержку_метода('showAlert', tg),
+        поддерживает_showConfirm: проверить_поддержку_метода('showConfirm', tg),
+        поддерживает_HapticFeedback: проверить_поддержку_метода('HapticFeedback.impactOccurred', tg)
+      });
       
-      // Расширение до полного размера
-      tg.expand();
+      // Инициализация WebApp (поддерживается с версии 6.0)
+      if (проверить_поддержку_метода('ready', tg)) {
+        tg.ready();
+      }
+      
+      // Расширение до полного размера (поддерживается с версии 6.0)
+      if (проверить_поддержку_метода('expand', tg)) {
+        tg.expand();
+      }
       
       // Получение данных пользователя
       if (tg.initDataUnsafe?.user) {
@@ -85,52 +146,98 @@ export const useTelegramWebApp = () => {
   }, []);
 
   const показатьУведомление = (сообщение: string) => {
-    if (webApp) {
+    if (webApp && проверить_поддержку_метода('showAlert', webApp)) {
       try {
         webApp.showAlert(сообщение);
       } catch (error) {
-        // Fallback для старых версий - используем обычный alert
-        console.warn('showAlert не поддерживается, используем fallback:', error);
+        console.warn('showAlert вызвал ошибку, используем fallback:', error);
         alert(сообщение);
       }
     } else {
+      // Fallback для версий без поддержки showAlert
+      console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает showAlert, используем стандартный alert`);
       alert(сообщение);
     }
   };
 
   const показатьПодтверждение = (сообщение: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      if (webApp) {
+      if (webApp && проверить_поддержку_метода('showConfirm', webApp)) {
         try {
           webApp.showConfirm(сообщение, (confirmed) => {
             resolve(confirmed);
           });
         } catch (error) {
-          // Fallback для старых версий - используем обычный confirm
-          console.warn('showConfirm не поддерживается, используем fallback:', error);
+          console.warn('showConfirm вызвал ошибку, используем fallback:', error);
           resolve(confirm(сообщение));
         }
       } else {
+        // Fallback для версий без поддержки showConfirm
+        console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает showConfirm, используем стандартный confirm`);
         resolve(confirm(сообщение));
       }
     });
   };
 
   const закрыть = () => {
-    if (webApp) {
-      webApp.close();
+    if (webApp && проверить_поддержку_метода('close', webApp)) {
+      try {
+        webApp.close();
+      } catch (error) {
+        console.warn('close вызвал ошибку:', error);
+        // Для close нет прямого fallback - просто логируем
+      }
+    } else {
+      console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает close`);
     }
   };
 
   const отправитьДанные = (данные: string) => {
-    if (webApp) {
-      webApp.sendData(данные);
+    if (webApp && проверить_поддержку_метода('sendData', webApp)) {
+      try {
+        webApp.sendData(данные);
+      } catch (error) {
+        console.warn('sendData вызвал ошибку:', error);
+      }
+    } else {
+      console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает sendData`);
     }
   };
 
   const вибрация = () => {
-    if (webApp?.HapticFeedback) {
-      webApp.HapticFeedback.impactOccurred('medium');
+    if (webApp && проверить_поддержку_метода('HapticFeedback.impactOccurred', webApp)) {
+      try {
+        webApp.HapticFeedback?.impactOccurred('medium');
+      } catch (error) {
+        console.warn('HapticFeedback.impactOccurred вызвал ошибку:', error);
+      }
+    } else {
+      console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает HapticFeedback`);
+    }
+  };
+
+  // Универсальная функция для показа всплывающего окна
+  const показатьВсплывающееОкно = (заголовок: string, сообщение: string, кнопки: Array<{id: string, type?: string, text: string}> = []) => {
+    if (webApp && проверить_поддержку_метода('showPopup', webApp)) {
+      try {
+        return new Promise((resolve) => {
+          webApp.showPopup({
+            title: заголовок,
+            message: сообщение,
+            buttons: кнопки.length > 0 ? кнопки : [{ id: 'ok', type: 'default', text: 'OK' }]
+          }, (buttonId) => {
+            resolve(buttonId);
+          });
+        });
+      } catch (error) {
+        console.warn('showPopup вызвал ошибку, используем fallback:', error);
+        return Promise.resolve(показатьУведомление(`${заголовок}: ${сообщение}`));
+      }
+    } else {
+      // Fallback через showAlert или обычный alert
+      console.info(`Telegram Web App версии ${webApp?.version || 'неизвестна'} не поддерживает showPopup, используем fallback`);
+      показатьУведомление(`${заголовок}: ${сообщение}`);
+      return Promise.resolve('ok');
     }
   };
 
@@ -139,8 +246,11 @@ export const useTelegramWebApp = () => {
     пользователь,
     готов,
     темная_тема: webApp?.colorScheme === 'dark',
+    версия: webApp?.version || 'неизвестна',
+    поддерживается: (метод: string) => проверить_поддержку_метода(метод, webApp),
     показатьУведомление,
     показатьПодтверждение,
+    показатьВсплывающееОкно,
     закрыть,
     отправитьДанные,
     вибрация,

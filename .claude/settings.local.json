@@ -31,7 +31,9 @@
       "Bash(cat:*)",
       "mcp__archlens__analyze_project",
       "mcp__archlens__export_ai_compact",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": []
   }
