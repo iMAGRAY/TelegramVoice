@@ -1,16 +1,15 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use futures_util::{SinkExt, StreamExt, TryFutureExt};
-use log::{error, info, warn};
+use futures_util::{SinkExt, StreamExt};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
 use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
 use uuid::Uuid;
-use warp::Filter;
 
 // Типы данных для сервера сигналинга
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,7 +150,7 @@ pub enum ОтветСервера {
     },
 }
 
-type WebSocketMap = Arc<DashMap<String, tokio_tungstenite::WebSocketStream<TcpStream>>>;
+type WebSocketMap = Arc<DashMap<String, mpsc::UnboundedSender<Message>>>;
 type ПользователиMap = Arc<DashMap<String, Пользователь>>;
 type КомнатыMap = Arc<DashMap<String, Комната>>;
 
