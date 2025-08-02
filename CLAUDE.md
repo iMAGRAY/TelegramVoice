@@ -112,14 +112,15 @@ pm2 restart ecosystem.config.js
 - **Pull Request проверки** - качество кода и безопасность
 
 ### Настройка CI/CD
-1. Настроить GitHub Secrets (см. `GITHUB_SECRETS.md`)
-2. Запустить `./dev.sh` для настройки pre-commit хуков
-3. Push в main автоматически запускает развертывание
+1. Запустить `./dev.sh` для настройки pre-commit хуков
+2. Push в main автоматически запускает сборку и тестирование
+3. Развертывание выполняется локально через `./auto-deploy.sh`
 
 ### Workflow GitHub Actions
 ```
-Push → Build & Test → Deploy (только main ветка)
+Push → Build & Test → Уведомление о готовности
 PR → Code Quality Checks + Security Audit
+Развертывание → Локально через ./auto-deploy.sh (использует .env)
 ```
 
 ## Правила разработки

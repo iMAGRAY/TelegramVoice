@@ -24,7 +24,10 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(ping:*)",
       "mcp__postgresql-api-ssh-mcp-server__mcp_psql_manager",
-      "mcp__postgresql-api-ssh-mcp-server__mcp_ssh_manager"
+      "mcp__postgresql-api-ssh-mcp-server__mcp_ssh_manager",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
