@@ -52,8 +52,10 @@ export const useSocket = ({
             телеграм_id: пользователь.телеграм_id,
             аватар: пользователь.аватар,
             подключен: true,
+            в_комнате: null,
             микрофон_включен: true,
-            говорит: false
+            говорит: false,
+            последняя_активность: new Date().toISOString()
           }
         };
         новый_socket.send(JSON.stringify(сообщение));
