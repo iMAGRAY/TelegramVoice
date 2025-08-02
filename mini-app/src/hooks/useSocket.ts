@@ -20,10 +20,13 @@ export const useSocket = ({
   const [подключено, setПодключено] = useState(false);
   const [загружается, setЗагружается] = useState(false);
   const обработчики = useRef<Map<string, Set<(...args: any[]) => void>>>(new Map());
+  const попытки_переподключения = useRef(0);
+  const максимум_попыток = 3;
+  const таймер_переподключения = useRef<NodeJS.Timeout | null>(null);
 
   // Подключение к серверу
   const подключиться = useCallback(async () => {
-    if (socket?.readyState === WebSocket.OPEN || !пользователь) return;
+    if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING || !пользователь) return;
 
     try {
       setЗагружается(true);
@@ -42,6 +45,7 @@ export const useSocket = ({
         console.log('Подключено к серверу WebSocket');
         setПодключено(true);
         setЗагружается(false);
+        попытки_переподключения.current = 0; // Сбрасываем счетчик при успешном подключении
         
         // Отправляем сообщение о подключении
         const сообщение = {
@@ -99,12 +103,26 @@ export const useSocket = ({
       новый_socket.onclose = (event) => {
         console.log('Отключено от сервера:', event.reason);
         setПодключено(false);
+        setSocket(null);
+        
+        // Очищаем предыдущий таймер если есть
+        if (таймер_переподключения.current) {
+          clearTimeout(таймер_переподключения.current);
+          таймер_переподключения.current = null;
+        }
         
         // Автоматическое переподключение при неожиданном отключении
-        if (!event.wasClean) {
-          setTimeout(() => {
+        if (!event.wasClean && попытки_переподключения.current < максимум_попыток) {
+          попытки_переподключения.current++;
+          console.log(`Попытка переподключения ${попытки_переподключения.current}/${максимум_попыток}...`);
+          
+          const задержка = Math.min(1000 * Math.pow(2, попытки_переподключения.current - 1), 10000);
+          таймер_переподключения.current = setTimeout(() => {
+            таймер_переподключения.current = null;
             подключиться();
-          }, 1000);
+          }, задержка);
+        } else if (попытки_переподключения.current >= максимум_попыток) {
+          на_ошибку?.('Превышено максимальное количество попыток подключения');
         }
       };
 
@@ -113,7 +131,7 @@ export const useSocket = ({
         console.error('Ошибка WebSocket:', error);
         setПодключено(false);
         setЗагружается(false);
-        на_ошибку?.('Не удалось подключиться к серверу');
+        // Не вызываем ошибку сразу, позволяем onclose обработать переподключение
       };
 
       setSocket(новый_socket);
@@ -122,7 +140,7 @@ export const useSocket = ({
       setЗагружается(false);
       на_ошибку?.('Ошибка инициализации соединения');
     }
-  }, [серверUrl, пользователь, на_обновление_пользователей, на_обновление_комнат, на_ошибку, socket?.readyState]);
+  }, [серверUrl, пользователь, на_обновление_пользователей, на_обновление_комнат, на_ошибку]);
 
   // Отключение от сервера
   const отключиться = useCallback(() => {
@@ -254,16 +272,22 @@ export const useSocket = ({
 
   // Автоматическое подключение при наличии пользователя
   useEffect(() => {
-    if (пользователь && (!socket || socket.readyState !== WebSocket.OPEN)) {
+    if (пользователь && !socket) {
       подключиться();
     }
     
     return () => {
+      // Очищаем таймер переподключения
+      if (таймер_переподключения.current) {
+        clearTimeout(таймер_переподключения.current);
+        таймер_переподключения.current = null;
+      }
+      
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.close();
       }
     };
-  }, [пользователь, подключиться]);
+  }, [пользователь]);
 
   // Обработка переподключения при восстановлении соединения
   useEffect(() => {
