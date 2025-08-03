@@ -29,17 +29,24 @@ jobs:
           git clean -fd
           git pull origin main
           
+          # Остановка всех PM2 процессов перед сборкой
+          pm2 delete all || true
+          
           # Сборка фронтенда
           cd mini-app
           npm install
           npm run build
           
-          # Сборка Rust backend (если есть cargo)
+          # Сборка Rust backend
           cd ../signaling-server
           if command -v cargo &> /dev/null; then
             cargo build --release
+            echo "✅ Rust сервер собран"
           else
-            echo "⚠️ Cargo не найден, пропускаем сборку Rust"
+            echo "❌ Cargo не найден, устанавливаем Rust"
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source ~/.cargo/env
+            cargo build --release
           fi
           
           # Настройка Nginx (если еще не настроен)
@@ -52,10 +59,25 @@ jobs:
             echo "✅ Nginx уже настроен"
           fi
           
-          # Запуск через PM2
-          pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
+          # Запуск сервисов через PM2
+          echo "🚀 Запуск сервисов..."
+          
+          # Запуск WebSocket сервера
+          pm2 start signaling-server/target/release/signaling-server --name "signaling-server" --log-date-format="YYYY-MM-DD HH:mm:ss Z"
+          
+          # Запуск фронтенда (статичные файлы)
+          cd mini-app
+          pm2 start npx --name "frontend" -- serve -s out -l 3000
+          cd ..
+          
+          # Сохранение конфигурации PM2
           pm2 save
           
           # Проверка статуса
           pm2 status
+          
+          # Проверка портов
+          echo "🔍 Проверка портов:"
+          netstat -tlnp | grep -E ":8080|:3000" || echo "Порты не найдены"
+          
           echo "✅ Развертывание завершено"
