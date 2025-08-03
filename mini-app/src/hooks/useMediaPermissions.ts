@@ -12,6 +12,7 @@ interface UseMediaPermissionsResult {
   запросить_все: () => Promise<{ микрофон: boolean; камера: boolean }>;
   проверить_статус: () => Promise<void>;
   сбросить_разрешения: () => Promise<void>;
+  сбросить_статус_микрофона: () => void;
   поддерживается: boolean;
 }
 
@@ -23,6 +24,9 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
            'mediaDevices' in navigator && 
            'getUserMedia' in navigator.mediaDevices;
   });
+
+  // Проверяем, работаем ли мы в Telegram Mini App
+  const isInTelegram = typeof window !== 'undefined' && window.Telegram?.WebApp;
 
   // Проверка текущего статуса разрешений
   const проверить_статус = useCallback(async () => {
@@ -107,6 +111,12 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
     }
   }, [поддерживается]);
 
+  // Принудительный сброс статуса (для Telegram Mini App)
+  const сбросить_статус_микрофона = useCallback(() => {
+    console.log('[MediaPermissions] Принудительный сброс статуса микрофона');
+    setСтатус_микрофона('неизвестно');
+  }, []);
+
   // Запрос разрешения на микрофон
   const запросить_микрофон = useCallback(async (): Promise<boolean> => {
     if (!поддерживается) {
@@ -115,20 +125,38 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
       return false;
     }
 
-    console.log('[MediaPermissions] Запрос разрешения микрофона...');
+    console.log('[MediaPermissions] Запрос разрешения микрофона...', {
+      isInTelegram,
+      currentStatus: статус_микрофона
+    });
     
     try {
       setСтатус_микрофона('запрашивается');
       
-      const поток = await navigator.mediaDevices.getUserMedia({ 
-        audio: true, 
+      // В Telegram Mini App может потребоваться дополнительное время
+      const mediaConstraints = { 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }, 
         video: false 
+      };
+      
+      console.log('[MediaPermissions] Вызываем getUserMedia с ограничениями:', mediaConstraints);
+      
+      const поток = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+      
+      console.log('[MediaPermissions] Разрешение получено успешно', {
+        tracks: поток.getTracks().length,
+        audioTracks: поток.getAudioTracks().length
       });
       
-      console.log('[MediaPermissions] Разрешение получено успешно');
-      
       // Останавливаем поток, он нам нужен был только для запроса разрешения
-      поток.getTracks().forEach(track => track.stop());
+      поток.getTracks().forEach(track => {
+        console.log('[MediaPermissions] Останавливаем трек:', track.kind, track.label);
+        track.stop();
+      });
       
       setСтатус_микрофона('разрешено');
       return true;
@@ -136,13 +164,21 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
       console.error('[MediaPermissions] Ошибка запроса разрешения микрофона:', error);
       
       if (error instanceof Error) {
-        console.log('[MediaPermissions] Тип ошибки:', error.name);
+        console.log('[MediaPermissions] Детали ошибки:', {
+          name: error.name,
+          message: error.message,
+          isInTelegram
+        });
+        
         if (error.name === 'NotAllowedError') {
           console.log('[MediaPermissions] Пользователь отклонил разрешение или оно уже заблокировано');
           setСтатус_микрофона('отклонено');
         } else if (error.name === 'NotFoundError') {
           console.log('[MediaPermissions] Микрофон не найден');
           setСтатус_микрофона('недоступно');
+        } else if (error.name === 'AbortError') {
+          console.log('[MediaPermissions] Запрос был прерван');
+          setСтатус_микрофона('неизвестно');
         } else {
           console.log('[MediaPermissions] Неизвестная ошибка:', error.message);
           setСтатус_микрофона('неизвестно');
@@ -151,7 +187,7 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
       
       return false;
     }
-  }, [поддерживается]);
+  }, [поддерживается, isInTelegram, статус_микрофона]);
 
   // Запрос разрешения на камеру
   const запросить_камеру = useCallback(async (): Promise<boolean> => {
@@ -220,6 +256,7 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
     запросить_все,
     проверить_статус,
     сбросить_разрешения,
+    сбросить_статус_микрофона,
     поддерживается
   };
 };

@@ -49,6 +49,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     запросить_микрофон,
     запросить_камеру,
     проверить_статус,
+    сбросить_статус_микрофона,
     поддерживается: медиа_поддерживается
   } = useMediaPermissions();
 
@@ -306,13 +307,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       </button>
                     )}
                     {статус_микрофона !== 'разрешено' && статус_микрофона !== 'запрашивается' && (
-                      <button
-                        onClick={обработать_запрос_микрофона}
-                        disabled={статус_микрофона === 'запрашивается'}
-                        className="px-3 py-1 text-xs bg-[var(--accent)] hover:opacity-90 disabled:opacity-50 text-white rounded transition-opacity"
-                      >
-                        Разрешить
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={обработать_запрос_микрофона}
+                          disabled={статус_микрофона === 'запрашивается'}
+                          className="px-3 py-1 text-xs bg-[var(--accent)] hover:opacity-90 disabled:opacity-50 text-white rounded transition-opacity"
+                        >
+                          Разрешить
+                        </button>
+                        {статус_микрофона === 'отклонено' && (
+                          <button
+                            onClick={() => {
+                              сбросить_статус_микрофона();
+                              setTimeout(обработать_запрос_микрофона, 100);
+                            }}
+                            className="px-2 py-1 text-xs bg-[var(--warning)] hover:opacity-90 text-white rounded transition-opacity"
+                            title="Принудительный сброс"
+                          >
+                            🔄
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
