@@ -76,7 +76,24 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+
+            echo "🚀 Синхронизация кода..."
             git pull origin main
+
+            echo "🔧 Проверка наличия curl..."
+            if ! command -v curl &>/dev/null; then
+              echo "Устанавливаем curl..."
+              apt-get update && apt-get install -y curl
+            fi
+
+            echo "🔧 Проверка наличия cargo..."
+            if ! command -v cargo &>/dev/null; then
+              echo "Устанавливаем Rust/Cargo через rustup..."
+              curl https://sh.rustup.rs -sSf | sh -s -- -y
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
+
+            echo "🔒 Делаем deploy.sh исполняемым и запускаем его..."
             chmod +x deploy.sh
             ./deploy.sh
 
@@ -103,21 +120,21 @@ jobs:
           script: |
             echo "🌐 Checking external availability of services..."
 
-            # Проверка WebSocket сервера на порту 8080
-            if timeout 5 bash -c "cat < /dev/tcp/${{ secrets.SERVER_HOST }}/8080" >/dev/null 2>&1; then
-              echo "✅ WebSocket server is reachable"
+            # WebSocket на порту 8080
+            if timeout 5 bash -c "cat < /dev/tcp/${{ secrets.SERVER_HOST }}/8080" &>/dev/null; then
+              echo "✅ WebSocket reachable"
             else
-              echo "❌ WebSocket server is not reachable"
+              echo "❌ WebSocket unreachable"
               exit 1
             fi
 
-            # Проверка HTTP сервера на порту 3000
+            # HTTP на порту 3000
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://${{ secrets.SERVER_HOST }}:3000 || echo "000")
             if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "404" ]]; then
-              echo "✅ HTTP server is reachable (code: $HTTP_CODE)"
+              echo "✅ HTTP reachable (code: $HTTP_CODE)"
             else
-              echo "❌ HTTP server is not reachable (code: $HTTP_CODE)"
+              echo "❌ HTTP unreachable (code: $HTTP_CODE)"
               exit 1
             fi
 
-            echo "🎉 All services deployed and reachable!"
+            echo "🎉 All services up and running!"
