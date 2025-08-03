@@ -42,8 +42,17 @@ jobs:
             echo "⚠️ Cargo не найден, пропускаем сборку Rust"
           fi
           
-          # Запуск через PM2
+          # Настройка Nginx (если еще не настроен)
           cd ..
+          if [ ! -f /etc/nginx/sites-enabled/telegramvoice ]; then
+            echo "🔧 Настройка Nginx..."
+            chmod +x setup-nginx.sh
+            ./setup-nginx.sh
+          else
+            echo "✅ Nginx уже настроен"
+          fi
+          
+          # Запуск через PM2
           pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
           pm2 save
           
