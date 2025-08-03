@@ -69,8 +69,7 @@ jobs:
         script: |
           cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
           git pull origin main
-          chmod +x deploy.sh
-          ./deploy.sh
+          bash deploy.sh
           
     - name: Пост-развертывание мониторинг
       uses: appleboy/ssh-action@v1.0.3
