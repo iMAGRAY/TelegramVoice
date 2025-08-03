@@ -1,0 +1,12 @@
+{
+  "name": "telegramvoice-backup",
+  "version": "1.0.0",
+  "description": "Backup WebSocket server for TelegramVoice",
+  "main": "backup-ws-server.js",
+  "scripts": {
+    "backup-ws": "node backup-ws-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

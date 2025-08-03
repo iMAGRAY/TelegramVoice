@@ -107,8 +107,9 @@ jobs:
             chmod +x diagnose-websocket.sh
             ./diagnose-websocket.sh
             # Попытка исправления
-            chmod +x fix-all.sh
-            ./fix-all.sh
+            echo "🚨 Запуск экстренного исправления..."
+            chmod +x emergency-fix.sh
+            ./emergency-fix.sh
           fi
           
           # Проверка HTTP фронтенда

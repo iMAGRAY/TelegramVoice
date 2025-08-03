@@ -1,13 +1,64 @@
 # Node
 node_modules/
 .next/
+out/
 .env.local
 .env
+.env.production
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Rust
 signaling-server/target/
+Cargo.lock
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Logs
 logs/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# PM2
+.pm2/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Временные файлы
+*.tmp
+*.temp
+.cache/
+
+# Резервные копии
+*.bak
+*.backup
+*.old
+
+# Ключи и сертификаты
+*.pem
+*.key
+*.crt
+*.csr
+
+# Локальные скрипты
+local-*.sh
