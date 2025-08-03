@@ -9,13 +9,14 @@ on:
       - main
 
 jobs:
-  # Проверка сборки и тесты
-  build-and-test:
+  # 1) Билд фронтенда и бэкенда + upload artifacts
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- Frontend build (static export) ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -23,6 +24,23 @@ jobs:
           cache: 'npm'
           cache-dependency-path: mini-app/package-lock.json
 
+      - name: Install frontend dependencies
+        working-directory: mini-app
+        run: npm ci
+
+      - name: Build and export frontend
+        working-directory: mini-app
+        run: |
+          npm run build          # должен делать `next build && next export`
+          # 결과 выходит в папку mini-app/out
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-static
+          path: mini-app/out
+
+      # --- Backend build (Rust release binary) ---
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -36,36 +54,39 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            signaling-server/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install frontend dependencies
-        working-directory: mini-app
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: mini-app
-        run: npm run build
-
-      - name: Check Rust code
-        working-directory: signaling-server
-        run: cargo check
-
-      - name: Build Rust project (release)
+      - name: Build Rust backend (release)
         working-directory: signaling-server
         run: cargo build --release
 
-  # Автоматическое развертывание (только для ветки main)
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-bin
+          path: signaling-server/target/release/
+
+  # 2) Деплой артефактов на сервер (без сборки на месте)
   deploy:
-    needs: build-and-test
+    needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-static
+          path: frontend-out
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-bin
+          path: backend-bin
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -75,27 +96,28 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+            # Остановим старые процессы (если используются pm2)
+            pm2 stop all || true
 
-            echo "🚀 Синхронизация кода..."
-            git pull origin main
+            # Разворачиваем фронтенд (статические файлы)
+            rm -rf ${{ secrets.SERVER_PROJECT_PATH }}/mini-app/out
+            mkdir -p ${{ secrets.SERVER_PROJECT_PATH }}/mini-app/out
+            cp -r /github/workspace/frontend-out/* ${{ secrets.SERVER_PROJECT_PATH }}/mini-app/out/
 
-            echo "🔧 Проверка наличия curl..."
-            if ! command -v curl &>/dev/null; then
-              echo "Устанавливаем curl..."
-              apt-get update && apt-get install -y curl
-            fi
+            # Разворачиваем бэкенд (Rust binary)
+            cp /github/workspace/backend-bin/signaling-server ${{ secrets.SERVER_PROJECT_PATH }}/signaling-server/
+            chmod +x ${{ secrets.SERVER_PROJECT_PATH }}/signaling-server/signaling-server
 
-            echo "🔧 Проверка наличия cargo..."
-            if ! command -v cargo &>/dev/null; then
-              echo "Устанавливаем Rust/Cargo через rustup..."
-              curl https://sh.rustup.rs -sSf | sh -s -- -y
-              export PATH="$HOME/.cargo/bin:$PATH"
-            fi
+            # Запускаем фронтенд через serve и pm2
+            npm install -g serve
+            cd ${{ secrets.SERVER_PROJECT_PATH }}/mini-app
+            pm2 start serve --name frontend -- -s out -l 3000
 
-            echo "🔒 Делаем deploy.sh исполняемым и запускаем его..."
-            chmod +x deploy.sh
-            ./deploy.sh
+            # Запускаем бэкенд через pm2
+            cd ${{ secrets.SERVER_PROJECT_PATH }}/signaling-server
+            pm2 start ./signaling-server --name signaling-server
+
+            pm2 save
 
       - name: Post-deploy monitoring
         uses: appleboy/ssh-action@v1.0.3
@@ -105,36 +127,21 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
-            echo "📊 Monitoring after deployment..."
-            chmod +x monitor.sh
-            ./monitor.sh
+            echo "🌐 Проверка доступности..."
 
-      - name: Verify service availability
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script: |
-            echo "🌐 Checking external availability of services..."
-
-            # WebSocket на порту 8080
+            # WebSocket
             if timeout 5 bash -c "cat < /dev/tcp/${{ secrets.SERVER_HOST }}/8080" &>/dev/null; then
-              echo "✅ WebSocket reachable"
+              echo "✅ WS OK"
             else
-              echo "❌ WebSocket unreachable"
-              exit 1
+              echo "❌ WS недоступен" && exit 1
             fi
 
-            # HTTP на порту 3000
+            # HTTP
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://${{ secrets.SERVER_HOST }}:3000 || echo "000")
             if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "404" ]]; then
-              echo "✅ HTTP reachable (code: $HTTP_CODE)"
+              echo "✅ HTTP OK (код $HTTP_CODE)"
             else
-              echo "❌ HTTP unreachable (code: $HTTP_CODE)"
-              exit 1
+              echo "❌ HTTP недоступен (код $HTTP_CODE)" && exit 1
             fi
 
-            echo "🎉 All services up and running!"
+            echo "🎉 Деплой пройден успешно!"
