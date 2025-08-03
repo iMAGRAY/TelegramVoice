@@ -90,13 +90,16 @@
                 ws.onopen = function() {
                     log('✅ Connection opened successfully!', 'success');
                     
-                    // Send test message
+                    // Send test message with all required fields
                     const testMsg = JSON.stringify({
                         тип: 'присоединиться',
                         пользователь: {
                             id: 'test-' + Date.now(),
                             имя: 'Test User',
-                            аватар: '👤'
+                            аватар: '👤',
+                            подключен: true,
+                            микрофон_включен: false,
+                            говорит: false
                         }
                     });
                     
