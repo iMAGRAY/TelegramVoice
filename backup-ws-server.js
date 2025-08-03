@@ -183,8 +183,22 @@ function generateId() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
+// Обработка ошибки запуска
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`[Backup WS] ОШИБКА: Порт ${PORT} уже занят!`);
+    console.log('[Backup WS] Пытаемся освободить порт...');
+    
+    // Выходим с ошибкой чтобы PM2 мог перезапустить
+    process.exit(1);
+  } else {
+    console.error('[Backup WS] Ошибка сервера:', error);
+    process.exit(1);
+  }
+});
+
 // Запуск сервера
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Backup WS] Сервер запущен на порту ${PORT}`);
   console.log(`[Backup WS] WebSocket: ws://localhost:${PORT}`);
   console.log(`[Backup WS] Health check: http://localhost:${PORT}/health`);

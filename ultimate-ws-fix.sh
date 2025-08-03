@@ -16,10 +16,10 @@ check_port() {
 # Функция очистки
 cleanup() {
     echo "🧹 Очистка старых процессов..."
-    # PM2
-    pm2 delete signaling-server 2>/dev/null || true
-    pm2 delete backup-ws 2>/dev/null || true
-    pm2 delete ws-server 2>/dev/null || true
+    
+    # PM2 - удаляем ВСЕ процессы
+    pm2 delete all 2>/dev/null || true
+    pm2 kill 2>/dev/null || true
     
     # Systemd
     systemctl stop telegramvoice-ws 2>/dev/null || true
@@ -29,10 +29,23 @@ cleanup() {
     [ -f /tmp/ws.pid ] && kill -9 $(cat /tmp/ws.pid) 2>/dev/null || true
     [ -f /tmp/backup-ws.pid ] && kill -9 $(cat /tmp/backup-ws.pid) 2>/dev/null || true
     
-    # Все на порту 8080
+    # АГРЕССИВНАЯ очистка порта 8080
+    echo "Очистка порта 8080..."
+    # lsof
     lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    # fuser
+    fuser -k 8080/tcp 2>/dev/null || true
+    sleep 1
+    # ss вместо netstat
+    ss -lptn 'sport = :8080' | grep -oP '(?<=pid=)\d+' | xargs kill -9 2>/dev/null || true
+    sleep 1
+    # Убиваем все процессы signaling-server и node
+    pkill -9 -f signaling-server 2>/dev/null || true
+    pkill -9 -f "node.*backup-ws-server" 2>/dev/null || true
+    pkill -9 -f "node.*8080" 2>/dev/null || true
     
-    sleep 2
+    sleep 3
 }
 
 # Создаем директорию для логов
@@ -167,7 +180,10 @@ try_direct_nodejs() {
 
 # ГЛАВНАЯ ЛОГИКА
 echo "🔍 Текущее состояние портов:"
-netstat -tlnp | grep 8080 || echo "Порт 8080 свободен"
+ss -tlnp | grep 8080 || echo "Порт 8080 свободен"
+echo
+echo "Процессы на порту 8080:"
+lsof -i:8080 2>/dev/null || echo "Никто не слушает порт 8080"
 echo
 
 # Очистка
@@ -198,7 +214,8 @@ else
     # Проверка портов
     echo
     echo "Порты:"
-    netstat -tlnp | grep 8080 || echo "- Порт 8080 никто не слушает"
+    ss -tlnp | grep 8080 || echo "- Порт 8080 никто не слушает (ss)"
+    lsof -i:8080 2>/dev/null || echo "- Порт 8080 никто не слушает (lsof)"
     
     # PM2 статус
     echo
