@@ -52,8 +52,24 @@ export const useWebRTC = ({
       
       return поток;
     } catch (error) {
-      console.error('Ошибка получения доступа к микрофону:', error);
-      setОшибка('Не удалось получить доступ к микрофону');
+      console.error('[useWebRTC] Ошибка получения доступа к микрофону:', error);
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          setОшибка('Доступ к микрофону запрещен. Проверьте разрешения браузера.');
+        } else if (error.name === 'NotFoundError') {
+          setОшибка('Микрофон не найден. Подключите микрофон и обновите страницу.');
+        } else if (error.name === 'AbortError') {
+          setОшибка('Запрос доступа к микрофону был прерван.');
+        } else if (error.name === 'NotReadableError') {
+          setОшибка('Микрофон используется другим приложением.');
+        } else {
+          setОшибка(`Ошибка микрофона: ${error.message}`);
+        }
+      } else {
+        setОшибка('Не удалось получить доступ к микрофону');
+      }
+      
       throw error;
     } finally {
       setЗагружается(false);

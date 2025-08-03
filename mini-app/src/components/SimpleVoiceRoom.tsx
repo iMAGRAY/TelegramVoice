@@ -65,10 +65,13 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
   useEffect(() => {
     const проверить_разрешения = async () => {
       if (!разрешения_проверены && поддерживается) {
+        console.log('[SimpleVoiceRoom] Проверка разрешений микрофона, статус:', статус_микрофона);
         // Проверяем статус разрешений
         if (статус_микрофона === 'отклонено' || статус_микрофона === 'неизвестно') {
+          console.log('[SimpleVoiceRoom] Показываем модальное окно разрешений');
           setПоказать_разрешения(true);
         } else if (статус_микрофона === 'разрешено') {
+          console.log('[SimpleVoiceRoom] Разрешения уже получены, пропускаем модальное окно');
           setРазрешения_проверены(true);
         }
       }
@@ -241,9 +244,15 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     };
   }, [socket, комната.id, текущий_пользователь.id, подключиться_к_пользователю, подписаться]);
 
-  // Инициализация микрофона при входе в комнату
+  // Инициализация микрофона при входе в комнату - ТОЛЬКО если разрешения уже получены
   useEffect(() => {
-    получить_микрофон().catch(console.error);
+    // Не запрашиваем микрофон автоматически, если разрешения еще не проверены
+    // или если статус не "разрешено" - пусть пользователь сначала даст разрешение через модальное окно
+    if (разрешения_проверены && статус_микрофона === 'разрешено') {
+      получить_микрофон().catch(error => {
+        console.error('Ошибка получения микрофона после подтверждения разрешений:', error);
+      });
+    }
     
     return () => {
       очистить();
@@ -253,7 +262,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       });
       аудио_refs.current.clear();
     };
-  }, []);
+  }, [разрешения_проверены, статус_микрофона, получить_микрофон, очистить]);
 
   if (загружается) {
     return (
@@ -266,9 +275,23 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
   if (ошибка) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-[var(--danger)] mb-2">Ошибка подключения</div>
-          <div className="text-sm text-[var(--text-secondary)]">{ошибка}</div>
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-[var(--danger)] mb-4 text-lg font-semibold">Ошибка подключения</div>
+          <div className="text-sm text-[var(--text-secondary)] mb-6">{ошибка}</div>
+          <div className="space-y-3">
+            <button
+              onClick={() => setПоказать_разрешения(true)}
+              className="w-full px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Проверить разрешения микрофона
+            </button>
+            <button
+              onClick={на_покинуть_комнату}
+              className="w-full px-4 py-2 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              Вернуться назад
+            </button>
+          </div>
         </div>
       </div>
     );
