@@ -93,12 +93,22 @@ jobs:
           # Финальная проверка доступности
           echo "🌐 Проверка доступности сервисов..."
           
-          # Проверка WebSocket через nginx proxy
-          WS_STATUS=$(curl -s -I --http1.1 --header "Connection: Upgrade" --header "Upgrade: websocket" --header "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==" --header "Sec-WebSocket-Version: 13" http://localhost/ws | head -1 | awk '{print $2}')
-          if [[ "$WS_STATUS" == "101" || "$WS_STATUS" == "502" ]]; then
-            echo "✅ WebSocket прокси настроен (статус $WS_STATUS)"
+          # Ожидание запуска сервисов
+          echo "⏳ Ожидание запуска сервисов (10 секунд)..."
+          sleep 10
+          
+          # Проверка WebSocket напрямую
+          echo "🔍 Проверка WebSocket на порту 8080..."
+          if timeout 5 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
+            echo "✅ WebSocket сервер доступен на порту 8080"
           else
-            echo "⚠️ WebSocket прокси: статус $WS_STATUS"
+            echo "❌ WebSocket сервер НЕ доступен на порту 8080"
+            # Запуск диагностики
+            chmod +x diagnose-websocket.sh
+            ./diagnose-websocket.sh
+            # Попытка исправления
+            chmod +x fix-all.sh
+            ./fix-all.sh
           fi
           
           # Проверка HTTP фронтенда
@@ -109,9 +119,28 @@ jobs:
             echo "❌ Фронтенд недоступен (статус $HTTP_STATUS)"
           fi
           
-          echo "🎉 Деплой завершен, сервисы запущены!"
+          echo "🎉 Деплой завершен!"
           
-          # Запуск диагностики WebSocket
-          echo "🔍 Запуск диагностики WebSocket..."
-          chmod +x diagnose-websocket.sh
-          ./diagnose-websocket.sh
+    - name: Final health check
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          echo "🌐 Проверка доступности..."
+          # WebSocket
+          if timeout 5 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
+            echo "✅ WS OK"
+          else
+            echo "❌ WS недоступен" && exit 1
+          fi
+          # HTTP
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:3000 || echo "000")
+          if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "404" ]]; then
+            echo "✅ HTTP OK (код $HTTP_CODE)"
+          else
+            echo "❌ HTTP недоступен (код $HTTP_CODE)" && exit 1
+          fi
+          echo "🎉 Деплой пройден успешно!"

@@ -1,55 +1,140 @@
 #!/bin/bash
+# Диагностика WebSocket соединения
 
-echo "🔍 Диагностика WebSocket сервера"
-echo "================================"
+echo "🔍 ДИАГНОСТИКА WEBSOCKET"
+echo "========================"
+echo
 
-# Проверка PM2 процессов
-echo "📋 PM2 статус:"
-pm2 status
+# 1. Проверка процесса
+echo "1️⃣ Проверка процесса signaling-server:"
+if pm2 list | grep -q "signaling-server"; then
+    echo "✅ Процесс найден в PM2"
+    pm2 describe signaling-server | grep -E "(status|uptime|restarts)"
+else
+    echo "❌ Процесс НЕ найден в PM2"
+fi
 
-# Проверка портов
-echo ""
-echo "🔌 Проверка портов:"
-echo "Порт 8080 (WebSocket):"
-netstat -tlnp | grep ":8080" || echo "❌ Порт 8080 не найден"
+# 2. Проверка порта 8080
+echo
+echo "2️⃣ Проверка порта 8080:"
+if lsof -i:8080 2>/dev/null | grep LISTEN; then
+    echo "✅ Порт 8080 слушается"
+else
+    echo "❌ Порт 8080 НЕ слушается"
+    
+    # Проверяем не занят ли порт
+    if lsof -i:8080 2>/dev/null; then
+        echo "⚠️ Порт 8080 занят другим процессом:"
+        lsof -i:8080
+    fi
+fi
 
-echo ""
-echo "Порт 3000 (Frontend):"
-netstat -tlnp | grep ":3000" || echo "❌ Порт 3000 не найден"
+# 3. Тест TCP соединения
+echo
+echo "3️⃣ Тест TCP соединения на порт 8080:"
+if timeout 2 bash -c "</dev/tcp/localhost/8080" 2>/dev/null; then
+    echo "✅ TCP соединение успешно"
+else
+    echo "❌ TCP соединение НЕ удалось"
+fi
 
-# Проверка процессов signaling-server
-echo ""
-echo "🦀 Rust процессы:"
-ps aux | grep signaling-server | grep -v grep || echo "❌ Rust процессы не найдены"
+# 4. Тест WebSocket upgrade
+echo
+echo "4️⃣ Тест WebSocket Upgrade:"
+WS_RESPONSE=$(curl -s -I -N \
+    -H "Connection: Upgrade" \
+    -H "Upgrade: websocket" \
+    -H "Sec-WebSocket-Version: 13" \
+    -H "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==" \
+    http://localhost:8080 2>&1)
 
-# Проверка логов PM2
-echo ""
-echo "📝 Логи signaling-server (последние 10 строк):"
-pm2 logs signaling-server --lines 10 --nostream || echo "❌ Не удается получить логи"
+if echo "$WS_RESPONSE" | grep -q "101"; then
+    echo "✅ WebSocket Upgrade успешен"
+    echo "$WS_RESPONSE" | head -5
+else
+    echo "❌ WebSocket Upgrade НЕ удался"
+    echo "$WS_RESPONSE" | head -10
+fi
 
-# Тестирование локального подключения к WebSocket
-echo ""
-echo "🧪 Тест локального подключения:"
-timeout 3 bash -c "cat < /dev/tcp/127.0.0.1/8080" >/dev/null 2>&1 && echo "✅ Локальное подключение к 8080 работает" || echo "❌ Локальное подключение к 8080 не работает"
+# 5. Проверка логов
+echo
+echo "5️⃣ Последние логи signaling-server:"
+echo "=== Ошибки ==="
+pm2 logs signaling-server --err --lines 10 --nostream 2>/dev/null || \
+    tail -10 /root/TelegramVoice/logs/signaling-server-error.log 2>/dev/null || \
+    echo "Логи ошибок не найдены"
 
-# Проверка nginx конфигурации
-echo ""
-echo "⚙️ Nginx конфигурация WebSocket:"
-nginx -t && echo "✅ Nginx конфигурация валидна" || echo "❌ Nginx конфигурация содержит ошибки"
+echo
+echo "=== Вывод ==="
+pm2 logs signaling-server --out --lines 10 --nostream 2>/dev/null || \
+    tail -10 /root/TelegramVoice/logs/signaling-server-out.log 2>/dev/null || \
+    echo "Логи вывода не найдены"
 
-# Проверка nginx логов
-echo ""
-echo "📋 Nginx error лог (последние 5 строк):"
-tail -5 /var/log/nginx/error.log 2>/dev/null || echo "❌ Не удается прочитать nginx error лог"
+# 6. Проверка файла
+echo
+echo "6️⃣ Проверка исполняемого файла:"
+FILE="/root/TelegramVoice/signaling-server/target/release/signaling-server"
+if [ -f "$FILE" ]; then
+    echo "✅ Файл существует"
+    ls -la "$FILE"
+    
+    # Проверка, что это действительно исполняемый файл
+    if file "$FILE" | grep -q "ELF"; then
+        echo "✅ Это корректный исполняемый файл"
+    else
+        echo "❌ Файл поврежден или не является исполняемым"
+        file "$FILE"
+    fi
+else
+    echo "❌ Файл НЕ существует"
+fi
 
-echo ""
-echo "🎯 Тест WebSocket handshake через nginx:"
-curl -s -I --http1.1 \
-  --header "Connection: Upgrade" \
-  --header "Upgrade: websocket" \
-  --header "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-  --header "Sec-WebSocket-Version: 13" \
-  http://localhost/ws | head -1 || echo "❌ WebSocket handshake не удался"
+# 7. Проверка окружения
+echo
+echo "7️⃣ Проверка окружения:"
+echo "RUST_LOG=${RUST_LOG:-не установлен}"
+echo "PATH=$PATH"
 
-echo ""
-echo "✅ Диагностика завершена"
+# 8. Попытка ручного запуска
+echo
+echo "8️⃣ Попытка ручного запуска (3 секунды):"
+if [ -f "$FILE" ]; then
+    cd /root/TelegramVoice/signaling-server
+    timeout 3 RUST_LOG=debug ./target/release/signaling-server 2>&1 | head -20
+    echo
+    echo "Ручной запуск завершен"
+fi
+
+# Итоговый вердикт
+echo
+echo "📊 ИТОГ:"
+echo "========"
+
+ISSUES=0
+
+if ! lsof -i:8080 2>/dev/null | grep -q LISTEN; then
+    echo "❌ WebSocket сервер НЕ слушает порт 8080"
+    ((ISSUES++))
+fi
+
+if ! pm2 list | grep -q "signaling-server.*online"; then
+    echo "❌ Процесс signaling-server НЕ работает в PM2"
+    ((ISSUES++))
+fi
+
+if [ ! -f "$FILE" ]; then
+    echo "❌ Исполняемый файл НЕ найден"
+    ((ISSUES++))
+fi
+
+if [ $ISSUES -eq 0 ]; then
+    echo "✅ WebSocket сервер работает корректно"
+else
+    echo
+    echo "🚨 Обнаружено проблем: $ISSUES"
+    echo
+    echo "РЕКОМЕНДАЦИИ:"
+    echo "1. Запустите: ./fix-all.sh"
+    echo "2. Проверьте логи: pm2 logs signaling-server"
+    echo "3. Пересоберите проект: cd signaling-server && cargo build --release"
+fi
