@@ -185,8 +185,8 @@ export const useSocket = ({
     }
   }, [socket, пользователь]);
 
-  // Отправка сообщения
-  const отправить_сообщение = useCallback((тип: string, данные: any, к?: string, комната?: string) => {
+  // Отправка WebRTC сигнала
+  const отправить_webrtc_сигнал = useCallback((данные: any, к: string, комната: string) => {
     if (socket && socket.readyState === WebSocket.OPEN && пользователь) {
       const сообщение = {
         тип: 'webrtc-signal',
@@ -196,9 +196,19 @@ export const useSocket = ({
         данные
       };
       
+      console.log('[Socket] Отправка WebRTC сигнала:', { 
+        от: пользователь.id, 
+        к, 
+        комната,
+        тип_данных: данные.type 
+      });
+      
       socket.send(JSON.stringify(сообщение));
     }
   }, [socket, пользователь]);
+
+  // Отправка общего сообщения (для обратной совместимости)
+  const отправить_сообщение = отправить_webrtc_сигнал;
 
   // Переключение состояния микрофона
   const переключить_микрофон = useCallback((включен: boolean, комната_id?: string) => {
@@ -308,6 +318,7 @@ export const useSocket = ({
     покинуть_комнату,
     создать_комнату,
     отправить_сообщение,
+    отправить_webrtc_сигнал,
     переключить_микрофон,
     уведомить_о_речи,
     получить_комнаты,
