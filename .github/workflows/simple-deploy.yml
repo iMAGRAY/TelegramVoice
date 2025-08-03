@@ -1,0 +1,52 @@
+name: Simple Deploy
+
+on:
+  workflow_dispatch:  # Ручной запуск
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
+    
+    steps:
+    - name: Deploy to server via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+          
+          # Остановка старых процессов
+          pm2 stop all || true
+          
+          # Сброс git состояния и обновление
+          git reset --hard HEAD
+          git clean -fd
+          git pull origin main
+          
+          # Сборка фронтенда
+          cd mini-app
+          npm install
+          npm run build
+          
+          # Сборка Rust backend (если есть cargo)
+          cd ../signaling-server
+          if command -v cargo &> /dev/null; then
+            cargo build --release
+          else
+            echo "⚠️ Cargo не найден, пропускаем сборку Rust"
+          fi
+          
+          # Запуск через PM2
+          cd ..
+          pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
+          pm2 save
+          
+          # Проверка статуса
+          pm2 status
+          echo "✅ Развертывание завершено"
