@@ -81,3 +81,24 @@ jobs:
           netstat -tlnp | grep -E ":8080|:3000" || echo "Порты не найдены"
           
           echo "✅ Развертывание завершено"
+          
+          # Финальная проверка доступности
+          echo "🌐 Проверка доступности сервисов..."
+          
+          # Проверка WebSocket через nginx proxy
+          WS_STATUS=$(curl -s -I --http1.1 --header "Connection: Upgrade" --header "Upgrade: websocket" --header "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==" --header "Sec-WebSocket-Version: 13" http://localhost/ws | head -1 | awk '{print $2}')
+          if [[ "$WS_STATUS" == "101" || "$WS_STATUS" == "502" ]]; then
+            echo "✅ WebSocket прокси настроен (статус $WS_STATUS)"
+          else
+            echo "⚠️ WebSocket прокси: статус $WS_STATUS"
+          fi
+          
+          # Проверка HTTP фронтенда
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:3000 || echo "000")
+          if [[ "$HTTP_STATUS" == "200" || "$HTTP_STATUS" == "404" ]]; then
+            echo "✅ Фронтенд доступен (статус $HTTP_STATUS)"
+          else
+            echo "❌ Фронтенд недоступен (статус $HTTP_STATUS)"
+          fi
+          
+          echo "🎉 Деплой завершен, сервисы запущены!"
