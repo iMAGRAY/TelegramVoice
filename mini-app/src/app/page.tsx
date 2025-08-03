@@ -78,6 +78,34 @@ export default function Home() {
     }
   }, [телеграм_готов, телеграм_пользователь]);
 
+  // Умный выбор WebSocket URL
+  const getWebSocketURL = () => {
+    // Если есть переменная окружения, используем её
+    if (process.env.NEXT_PUBLIC_WEBSOCKET_URL) {
+      return process.env.NEXT_PUBLIC_WEBSOCKET_URL;
+    }
+    
+    // Автоматический выбор на основе текущего URL
+    if (typeof window !== 'undefined') {
+      const isHTTPS = window.location.protocol === 'https:';
+      const hostname = window.location.hostname;
+      
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'ws://localhost:8080';
+      }
+      
+      if (hostname === '89.23.115.156') {
+        return isHTTPS ? 'wss://hesovoice.online/ws' : 'ws://89.23.115.156:8080';
+      }
+      
+      if (hostname === 'hesovoice.online') {
+        return isHTTPS ? 'wss://hesovoice.online/ws' : 'ws://hesovoice.online/ws';
+      }
+    }
+    
+    return 'ws://localhost:8080'; // fallback
+  };
+
   const {
     socket,
     подключено,
@@ -86,7 +114,7 @@ export default function Home() {
     покинуть_комнату,
     подписаться,
   } = useSocket({
-    серверUrl: process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080',
+    серверUrl: getWebSocketURL(),
     пользователь: состояние.текущий_пользователь,
     на_обновление_комнат: (комнаты: Комната[]) => {
       setСостояние(prev => ({ ...prev, комнаты }));
