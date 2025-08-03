@@ -26,7 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <script 
+          src="https://telegram.org/js/telegram-web-app.js"
+          onError={(e) => {
+            console.warn('[TelegramWebApp] Не удалось загрузить Telegram WebApp SDK:', e);
+          }}
+        ></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

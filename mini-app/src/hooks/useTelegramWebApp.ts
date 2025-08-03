@@ -105,14 +105,18 @@ export const useTelegramWebApp = () => {
   const [готов, setГотов] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+    // Проверяем, запущено ли приложение в Telegram
+    const isInTelegram = typeof window !== 'undefined' && window.Telegram?.WebApp;
+    
+    if (isInTelegram) {
       const tg = window.Telegram.WebApp;
       setWebApp(tg);
       
       // Логирование версии для диагностики
-      console.log('Telegram Web App инициализирован:', {
+      console.log('[TelegramWebApp] Инициализирован в Telegram:', {
         версия: tg.version,
         платформа: tg.platform,
+        пользователь: tg.initDataUnsafe?.user,
         поддерживает_showAlert: проверить_поддержку_метода('showAlert', tg),
         поддерживает_showConfirm: проверить_поддержку_метода('showConfirm', tg),
         поддерживает_HapticFeedback: проверить_поддержку_метода('HapticFeedback.impactOccurred', tg)
@@ -120,12 +124,22 @@ export const useTelegramWebApp = () => {
       
       // Инициализация WebApp (поддерживается с версии 6.0)
       if (проверить_поддержку_метода('ready', tg)) {
-        tg.ready();
+        try {
+          tg.ready();
+          console.log('[TelegramWebApp] WebApp готов');
+        } catch (error) {
+          console.error('[TelegramWebApp] Ошибка инициализации:', error);
+        }
       }
       
       // Расширение до полного размера (поддерживается с версии 6.0)
       if (проверить_поддержку_метода('expand', tg)) {
-        tg.expand();
+        try {
+          tg.expand();
+          console.log('[TelegramWebApp] WebApp расширен');
+        } catch (error) {
+          console.error('[TelegramWebApp] Ошибка расширения:', error);
+        }
       }
       
       // Получение данных пользователя
@@ -136,12 +150,31 @@ export const useTelegramWebApp = () => {
       setГотов(true);
       
       // Настройка темы
-      document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor);
-      document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color);
-      document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color);
-      document.documentElement.style.setProperty('--tg-theme-link-color', tg.themeParams.link_color);
-      document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
-      document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
+      try {
+        document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor);
+        document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color);
+        document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color);
+        document.documentElement.style.setProperty('--tg-theme-link-color', tg.themeParams.link_color);
+        document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
+        document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
+      } catch (error) {
+        console.warn('[TelegramWebApp] Ошибка настройки темы:', error);
+      }
+    } else {
+      // Fallback для случаев, когда приложение запущено не в Telegram
+      console.warn('[TelegramWebApp] Приложение запущено вне Telegram. Используем тестовый режим.');
+      
+      // Создаем тестового пользователя
+      setПользователь({
+        id: 123456789,
+        first_name: 'Test',
+        last_name: 'User',
+        username: 'testuser',
+        language_code: 'ru',
+        allows_write_to_pm: true
+      });
+      
+      setГотов(true);
     }
   }, []);
 
