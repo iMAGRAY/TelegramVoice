@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Пользователь, Комната } from '@/types';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { Mic, MicOff, PhoneOff, Users, Volume2, Radio } from 'lucide-react';
+import { ICEStatus } from './ICEStatus';
 
 interface VoiceRoomProps {
   комната: Комната;
@@ -300,7 +301,14 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       {/* Панель управления */}
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-primary)] border-t border-[var(--border-color)]">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-between">
+            {/* Статус соединения */}
+            <div className="flex-1">
+              <ICEStatus показать_подробности={false} />
+            </div>
+            
+            {/* Кнопки управления */}
+            <div className="flex items-center gap-4">
             <button
               onClick={переключить_микрофон}
               className={`
@@ -319,6 +327,10 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
               <Radio className="w-4 h-4" />
               {микрофон_включен ? 'Микрофон включен' : 'Микрофон выключен'}
             </div>
+            </div>
+            
+            {/* Пустое место справа для баланса */}
+            <div className="flex-1"></div>
           </div>
         </div>
       </div>

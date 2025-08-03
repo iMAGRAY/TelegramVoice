@@ -3,7 +3,7 @@
 ## Требования к серверу
 - Ubuntu 20.04+ или Debian 11+
 - Минимум 2GB RAM
-- Открытые порты: 80, 443, 8080
+- Открытые порты: 80, 443, 8080, 3478 (TCP/UDP), 49152-65535 (UDP для TURN)
 - Установленный Docker и Docker Compose
 
 ## Шаг 1: Подготовка сервера
@@ -39,6 +39,12 @@ cd TelegramVoice
 ```env
 NEXT_PUBLIC_WEBSOCKET_URL=wss://yourdomain.com/ws
 TELEGRAM_BOT_TOKEN=ваш_токен_бота
+
+# TURN сервер (будет настроен автоматически)
+NEXT_PUBLIC_CUSTOM_STUN_SERVER=stun:yourdomain.com:3478
+NEXT_PUBLIC_CUSTOM_TURN_SERVER=turn:yourdomain.com:3478
+NEXT_PUBLIC_TURN_USERNAME=telegramvoice
+NEXT_PUBLIC_TURN_CREDENTIAL=будет_сгенерирован_автоматически
 ```
 
 ### Для Signaling Server (создайте файл /var/www/TelegramVoice/signaling-server/.env):
@@ -109,7 +115,40 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d yourdomain.com
 ```
 
-## Шаг 6: Сборка и запуск приложений
+## Шаг 6: Установка TURN сервера (Coturn)
+
+Для обеспечения надежного WebRTC соединения, установите TURN сервер:
+
+```bash
+# Загрузите и запустите скрипт установки
+cd /var/www/TelegramVoice
+chmod +x setup-coturn.sh
+sudo ./setup-coturn.sh
+```
+
+Скрипт автоматически:
+- Установит Coturn
+- Настроит конфигурацию с вашим внешним IP
+- Сгенерирует безопасный пароль
+- Настроит файрволл
+- Сохранит учетные данные в `/root/coturn-credentials.txt`
+
+После установки обновите файл `.env.production` с учетными данными из `/root/coturn-credentials.txt`.
+
+### Проверка работы TURN сервера:
+
+```bash
+# Проверка статуса
+sudo systemctl status coturn
+
+# Просмотр логов
+sudo tail -f /var/log/turnserver.log
+
+# Тест подключения
+turnutils_uclient -v -t -T -u telegramvoice -w YOUR_PASSWORD turn:127.0.0.1:3478
+```
+
+## Шаг 7: Сборка и запуск приложений
 
 ### Сборка Mini App:
 ```bash
@@ -124,7 +163,7 @@ cd /var/www/TelegramVoice/signaling-server
 cargo build --release
 ```
 
-## Шаг 7: Создание systemd сервиса для Signaling Server
+## Шаг 8: Создание systemd сервиса для Signaling Server
 
 Создайте файл `/etc/systemd/system/telegram-voice-signaling.service`:
 
@@ -154,7 +193,7 @@ sudo systemctl start telegram-voice-signaling
 sudo systemctl status telegram-voice-signaling
 ```
 
-## Шаг 8: Настройка Telegram Bot
+## Шаг 9: Настройка Telegram Bot
 
 1. Откройте @BotFather в Telegram
 2. Используйте команду `/setmenubutton`

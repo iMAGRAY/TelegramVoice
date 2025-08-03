@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
 import { WebRTCПодключение, СообщениеВебСокета } from '@/types';
+import { получить_ice_конфигурацию, ice_конфигурации } from '@/config/iceServers';
 
 interface UseWebRTCProps {
   пользователь_id: string;
@@ -27,13 +28,9 @@ export const useWebRTC = ({
   const локальный_поток_ref = useRef<MediaStream | null>(null);
   const подключения_ref = useRef<Map<string, WebRTCПодключение>>(new Map());
 
-  // Конфигурация ICE серверов
-  const ice_config = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-    ]
-  };
+  // Получаем конфигурацию ICE серверов
+  // Используем полную конфигурацию с TURN серверами для лучшей связности
+  const ice_config = получить_ice_конфигурацию(true);
 
   // Получение доступа к микрофону
   const получить_микрофон = useCallback(async () => {
