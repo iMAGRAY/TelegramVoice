@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useMediaPermissions, СтатусРазрешений } from '@/hooks/useMediaPermissions';
 
 interface МикрофонНастройки {
   выбранное_устройство_id: string;
@@ -40,6 +41,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const анализатор = useRef<AnalyserNode | null>(null);
   const микрофон_поток = useRef<MediaStream | null>(null);
   const анимация_ref = useRef<number>();
+
+  // Хук для управления разрешениями
+  const {
+    статус_микрофона,
+    статус_камеры,
+    запросить_микрофон,
+    запросить_камеру,
+    проверить_статус,
+    поддерживается: медиа_поддерживается
+  } = useMediaPermissions();
 
   // Загрузка доступных микрофонов
   useEffect(() => {
@@ -149,6 +160,67 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     на_закрыть();
   };
 
+  // Функции для работы с разрешениями
+  const получить_текст_статуса = (статус: СтатусРазрешений): string => {
+    switch (статус) {
+      case 'разрешено':
+        return 'Разрешено';
+      case 'отклонено':
+        return 'Заблокировано';
+      case 'запрашивается':
+        return 'Запрашивается...';
+      case 'недоступно':
+        return 'Недоступно';
+      default:
+        return 'Не определено';
+    }
+  };
+
+  const получить_цвет_статуса = (статус: СтатусРазрешений): string => {
+    switch (статус) {
+      case 'разрешено':
+        return 'text-[var(--success)]';
+      case 'отклонено':
+        return 'text-[var(--danger)]';
+      case 'запрашивается':
+        return 'text-[var(--warning)]';
+      case 'недоступно':
+        return 'text-[var(--text-tertiary)]';
+      default:
+        return 'text-[var(--text-secondary)]';
+    }
+  };
+
+  const обработать_запрос_микрофона = async () => {
+    try {
+      const результат = await запросить_микрофон();
+      if (результат) {
+        // Перезагружаем список устройств после получения разрешения
+        await загрузить_устройства();
+      }
+    } catch (error) {
+      console.error('Ошибка запроса разрешения микрофона:', error);
+    }
+  };
+
+  const показать_инструкцию_разрешений = () => {
+    const инструкция = `
+Для восстановления доступа к микрофону:
+
+1. Нажмите на иконку 🔒 или ⓘ в адресной строке браузера
+2. Найдите настройку "Микрофон" 
+3. Выберите "Разрешить" или "Спрашивать"
+4. Обновите страницу
+
+Альтернативно в настройках браузера:
+• Chrome: Настройки → Конфиденциальность → Настройки сайта → Микрофон
+• Firefox: Настройки → Приватность → Разрешения → Микрофон  
+• Safari: Настройки → Веб-сайты → Микрофон
+`;
+    
+    alert(инструкция);
+  };
+
   return (
     <div className="fixed inset-0 bg-[var(--bg-primary)] z-50 overflow-auto">
       {/* Заголовок */}
@@ -202,6 +274,59 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       <div className="p-4 max-w-2xl mx-auto">
         {активная_вкладка === 'микрофон' && (
           <div className="space-y-6">
+            {/* Статус разрешений */}
+            <div className="bg-[var(--bg-secondary)] rounded-lg p-4">
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-4">Разрешения</h3>
+              
+              {/* Микрофон */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-[var(--bg-primary)] rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    <div>
+                      <div className="text-sm font-medium text-[var(--text-primary)]">Микрофон</div>
+                      <div className="text-xs text-[var(--text-tertiary)]">Доступ к аудио</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${получить_цвет_статуса(статус_микрофона)}`}>
+                      {получить_текст_статуса(статус_микрофона)}
+                    </span>
+                    {статус_микрофона === 'отклонено' && (
+                      <button
+                        onClick={показать_инструкцию_разрешений}
+                        className="p-1 hover:bg-[var(--bg-hover)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
+                        title="Как разрешить доступ"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                    )}
+                    {статус_микрофона !== 'разрешено' && статус_микрофона !== 'запрашивается' && (
+                      <button
+                        onClick={обработать_запрос_микрофона}
+                        disabled={статус_микрофона === 'запрашивается'}
+                        className="px-3 py-1 text-xs bg-[var(--accent)] hover:opacity-90 disabled:opacity-50 text-white rounded transition-opacity"
+                      >
+                        Разрешить
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {!медиа_поддерживается && (
+                  <div className="p-3 bg-[var(--warning)] bg-opacity-10 border border-[var(--warning)] rounded-lg">
+                    <p className="text-[var(--warning)] text-sm">
+                      ⚠️ Ваш браузер не поддерживает доступ к микрофону или работает в небезопасном контексте
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Выбор устройства */}
             <div className="bg-[var(--bg-secondary)] rounded-lg p-4">
               <h3 className="text-lg font-medium text-[var(--text-primary)] mb-4">Устройство ввода</h3>

@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Пользователь, Комната } from '@/types';
 import { useWebRTC } from '@/hooks/useWebRTC';
+import { useMediaPermissions } from '@/hooks/useMediaPermissions';
 import { Mic, MicOff, PhoneOff, Users, Volume2, Radio } from 'lucide-react';
 import { ICEStatus } from './ICEStatus';
+import { MediaPermissionModal } from './MediaPermissionModal';
 
 interface VoiceRoomProps {
   комната: Комната;
@@ -26,11 +28,16 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
   const [участники, setУчастники] = useState<Пользователь[]>([текущий_пользователь]);
   const [аудио_потоки, setАудио_потоки] = useState<Map<string, MediaStream>>(new Map());
   const [говорящие_пользователи, setГоворящие_пользователи] = useState<Set<string>>(new Set());
+  const [показать_разрешения, setПоказать_разрешения] = useState(false);
+  const [разрешения_проверены, setРазрешения_проверены] = useState(false);
   const аудио_refs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   // Обработчики для WebRTC
   const [удаленный_поток_обработчик, setУдаленный_поток_обработчик] = useState<((пользователь_id: string, поток: MediaStream) => void) | null>(null);
   const [отключение_обработчик, setОтключение_обработчик] = useState<((пользователь_id: string) => void) | null>(null);
+
+  // Хук для работы с разрешениями
+  const { статус_микрофона, поддерживается } = useMediaPermissions();
 
   // WebRTC хук
   const {
