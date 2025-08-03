@@ -68,8 +68,11 @@ jobs:
         port: ${{ secrets.SERVER_PORT || 22 }}
         script: |
           cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+          git reset --hard HEAD
+          git clean -fd
           git pull origin main
-          bash deploy.sh
+          chmod +x deploy.sh
+          ./deploy.sh
           
     - name: Пост-развертывание мониторинг
       uses: appleboy/ssh-action@v1.0.3
