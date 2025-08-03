@@ -42,7 +42,8 @@
       "Bash(start /B cargo run --manifest-path signaling-server/Cargo.toml)",
       "Bash(npm install:*)",
       "Bash(gh run list:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(gh run view:*)"
     ],
     "deny": []
   }
