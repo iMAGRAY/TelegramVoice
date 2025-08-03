@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { Пользователь, Комната, СостояниеПриложения } from '@/types';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 import { useSocket } from '@/hooks/useSocket';
+import { useSettings } from '@/hooks/useSettings';
 import { SimpleRoomsList } from '@/components/SimpleRoomsList';
 import { SimpleVoiceRoom } from '@/components/SimpleVoiceRoom';
+import { SettingsPage } from '@/components/SettingsPage';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
@@ -19,6 +21,15 @@ export default function Home() {
     ошибка: null,
     загружается: true,
   });
+
+  const [показать_настройки, setПоказать_настройки] = useState(false);
+  
+  const { 
+    настройки, 
+    загружено: настройки_загружены, 
+    сохранить_настройки,
+    получить_настройки_микрофона 
+  } = useSettings();
 
   const {
     пользователь: телеграм_пользователь,
@@ -95,6 +106,22 @@ export default function Home() {
     }));
   }, [подключено, загружается_сокет]);
 
+  // Функции для управления настройками
+  const открыть_настройки = () => {
+    setПоказать_настройки(true);
+    вибрация?.();
+  };
+
+  const закрыть_настройки = () => {
+    setПоказать_настройки(false);
+  };
+
+  const сохранить_и_закрыть_настройки = (новые_настройки: typeof настройки) => {
+    сохранить_настройки(новые_настройки);
+    setПоказать_настройки(false);
+    показатьУведомление?.('Настройки сохранены');
+  };
+
 
   // Обработка присоединения к комнате
   const обработать_присоединение_к_комнате = async (комната_id: string, пароль?: string) => {
@@ -165,7 +192,7 @@ export default function Home() {
   }, [socket, состояние.текущий_пользователь?.id, показатьУведомление]);
 
   // Показываем загрузку пока инициализируется приложение
-  if (состояние.загружается || !состояние.текущий_пользователь) {
+  if (состояние.загружается || !состояние.текущий_пользователь || !настройки_загружены) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -235,6 +262,7 @@ export default function Home() {
           socket={socket}
           подписаться={подписаться}
           на_покинуть_комнату={обработать_выход_из_комнаты}
+          на_открыть_настройки={открыть_настройки}
         />
       ) : (
         <SimpleRoomsList
@@ -242,6 +270,16 @@ export default function Home() {
           пользователь={состояние.текущий_пользователь}
           на_присоединение={обработать_присоединение_к_комнате}
           загружается={загружается_сокет}
+          на_открыть_настройки={открыть_настройки}
+        />
+      )}
+
+      {/* Страница настроек */}
+      {показать_настройки && (
+        <SettingsPage
+          настройки={настройки}
+          на_закрыть={закрыть_настройки}
+          на_сохранить={сохранить_и_закрыть_настройки}
         />
       )}
 
