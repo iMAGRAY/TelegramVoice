@@ -55,25 +55,40 @@ export const MediaPermissionModal: React.FC<MediaPermissionModalProps> = ({
       setЗагружается(true);
       setОшибка(null);
 
+      console.log('[MediaPermissionModal] Начало запроса разрешений');
+
       let успех = true;
 
       if (требуется_микрофон && статус_микрофона !== 'разрешено') {
+        console.log('[MediaPermissionModal] Запрос разрешения микрофона');
         const результат = await запросить_микрофон();
-        if (!результат) успех = false;
+        console.log('[MediaPermissionModal] Результат запроса микрофона:', результат);
+        if (!результат) {
+          успех = false;
+          // Если разрешение уже заблокировано браузером
+          if (статус_микрофона === 'отклонено') {
+            setОшибка('Разрешение уже заблокировано браузером. Используйте кнопку "Настройки браузера" для разблокировки.');
+          }
+        }
       }
 
       if (требуется_камера && статус_камеры !== 'разрешено') {
+        console.log('[MediaPermissionModal] Запрос разрешения камеры');
         const результат = await запросить_камеру();
+        console.log('[MediaPermissionModal] Результат запроса камеры:', результат);
         if (!результат) успех = false;
       }
 
       if (успех) {
+        console.log('[MediaPermissionModal] Все разрешения получены');
         на_разрешение_получено();
       } else {
-        на_разрешение_отклонено();
+        console.log('[MediaPermissionModal] Не удалось получить все разрешения');
+        // Не закрываем модальное окно, чтобы пользователь мог попробовать еще раз
+        // на_разрешение_отклонено();
       }
     } catch (error) {
-      console.error('Ошибка запроса разрешений:', error);
+      console.error('[MediaPermissionModal] Ошибка запроса разрешений:', error);
       setОшибка('Произошла ошибка при запросе разрешений');
       на_разрешение_отклонено();
     } finally {
@@ -215,6 +230,16 @@ export const MediaPermissionModal: React.FC<MediaPermissionModalProps> = ({
           </div>
         )}
 
+        {/* Информация о заблокированных разрешениях */}
+        {((требуется_микрофон && статус_микрофона === 'отклонено') || 
+          (требуется_камера && статус_камеры === 'отклонено')) && !ошибка && (
+          <div className="mb-4 p-3 bg-[var(--warning)] bg-opacity-10 border border-[var(--warning)] rounded-lg">
+            <p className="text-[var(--warning)] text-sm">
+              ⚠️ Разрешения заблокированы браузером. Если кнопка "Попробовать еще раз" не помогает, используйте "Настройки браузера" для ручной разблокировки.
+            </p>
+          </div>
+        )}
+
         {/* Кнопки */}
         <div className="space-y-3">
           {/* Показываем кнопку запроса, если есть неразрешенные устройства */}
@@ -227,7 +252,10 @@ export const MediaPermissionModal: React.FC<MediaPermissionModalProps> = ({
                        (требуется_камера && статус_камеры === 'запрашивается')}
               className="w-full px-4 py-3 bg-[var(--accent)] hover:bg-opacity-90 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
             >
-              {загружается ? 'Запрашиваем доступ...' : 'Разрешить доступ'}
+              {загружается ? 'Запрашиваем доступ...' : 
+               ((требуется_микрофон && статус_микрофона === 'отклонено') || 
+                (требуется_камера && статус_камеры === 'отклонено')) ? 
+               'Попробовать еще раз' : 'Разрешить доступ'}
             </button>
           )}
 

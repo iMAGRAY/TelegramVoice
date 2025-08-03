@@ -41,20 +41,24 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
             navigator.permissions.query({ name: 'camera' as PermissionName })
           ]);
 
+          console.log('[MediaPermissions] Permissions API результат - микрофон:', микрофон_разрешение.state, 'камера:', камера_разрешение.state);
+
           setСтатус_микрофона(переводить_статус_разрешения(микрофон_разрешение.state));
           setСтатус_камеры(переводить_статус_разрешения(камера_разрешение.state));
 
           // Подписываемся на изменения разрешений
           микрофон_разрешение.onchange = () => {
+            console.log('[MediaPermissions] Изменение статуса микрофона:', микрофон_разрешение.state);
             setСтатус_микрофона(переводить_статус_разрешения(микрофон_разрешение.state));
           };
           камера_разрешение.onchange = () => {
+            console.log('[MediaPermissions] Изменение статуса камеры:', камера_разрешение.state);
             setСтатус_камеры(переводить_статус_разрешения(камера_разрешение.state));
           };
 
           return;
         } catch (error) {
-          console.log('Permissions API недоступно, используем fallback');
+          console.log('[MediaPermissions] Permissions API недоступно, используем fallback:', error);
         }
       }
 
@@ -106,10 +110,13 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
   // Запрос разрешения на микрофон
   const запросить_микрофон = useCallback(async (): Promise<boolean> => {
     if (!поддерживается) {
+      console.log('[MediaPermissions] Браузер не поддерживает медиа API');
       setСтатус_микрофона('недоступно');
       return false;
     }
 
+    console.log('[MediaPermissions] Запрос разрешения микрофона...');
+    
     try {
       setСтатус_микрофона('запрашивается');
       
@@ -118,20 +125,26 @@ export const useMediaPermissions = (): UseMediaPermissionsResult => {
         video: false 
       });
       
+      console.log('[MediaPermissions] Разрешение получено успешно');
+      
       // Останавливаем поток, он нам нужен был только для запроса разрешения
       поток.getTracks().forEach(track => track.stop());
       
       setСтатус_микрофона('разрешено');
       return true;
     } catch (error) {
-      console.error('Ошибка запроса разрешения микрофона:', error);
+      console.error('[MediaPermissions] Ошибка запроса разрешения микрофона:', error);
       
       if (error instanceof Error) {
+        console.log('[MediaPermissions] Тип ошибки:', error.name);
         if (error.name === 'NotAllowedError') {
+          console.log('[MediaPermissions] Пользователь отклонил разрешение или оно уже заблокировано');
           setСтатус_микрофона('отклонено');
         } else if (error.name === 'NotFoundError') {
+          console.log('[MediaPermissions] Микрофон не найден');
           setСтатус_микрофона('недоступно');
         } else {
+          console.log('[MediaPermissions] Неизвестная ошибка:', error.message);
           setСтатус_микрофона('неизвестно');
         }
       }
