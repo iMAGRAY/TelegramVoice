@@ -62,20 +62,16 @@ jobs:
           # Запуск сервисов через PM2
           echo "🚀 Запуск сервисов..."
           
-          # Запуск WebSocket сервера
-          if [ -f "signaling-server/target/release/signaling-server" ]; then
-            echo "✅ Найден исполняемый файл signaling-server"
-            pm2 start signaling-server/target/release/signaling-server --name "signaling-server" --log-date-format="YYYY-MM-DD HH:mm:ss Z"
-          else
-            echo "❌ Исполняемый файл signaling-server не найден в signaling-server/target/release/"
-            echo "Поиск исполняемых файлов:"
-            find signaling-server -name "signaling-server*" -type f
-            exit 1
-          fi
+          # Остановка старых процессов PM2
+          pm2 delete all || true
           
-          # Запуск фронтенда (статичные файлы)
+          # Запуск WebSocket сервера через ultimate fix
+          chmod +x ultimate-ws-fix.sh
+          ./ultimate-ws-fix.sh
+          
+          # Запуск фронтенда через PM2
           cd mini-app
-          pm2 start npx --name "frontend" -- serve -s out -l 3000
+          pm2 start ecosystem.config.js --only frontend 2>/dev/null || pm2 start npx --name "frontend" -- serve -s out -l 3000
           cd ..
           
           # Сохранение конфигурации PM2
@@ -103,13 +99,10 @@ jobs:
             echo "✅ WebSocket сервер доступен на порту 8080"
           else
             echo "❌ WebSocket сервер НЕ доступен на порту 8080"
-            # Запуск диагностики
-            chmod +x diagnose-websocket.sh
-            ./diagnose-websocket.sh
-            # Попытка исправления
-            echo "🚨 Запуск экстренного исправления..."
-            chmod +x emergency-fix.sh
-            ./emergency-fix.sh
+            # Запуск ultimate fix
+            echo "🚨 Запуск финального исправления..."
+            chmod +x ultimate-ws-fix.sh
+            ./ultimate-ws-fix.sh
           fi
           
           # Проверка HTTP фронтенда
@@ -121,6 +114,18 @@ jobs:
           fi
           
           echo "🎉 Деплой завершен!"
+          
+    - name: Debug before final check
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          cd /root/TelegramVoice
+          chmod +x quick-debug.sh
+          ./quick-debug.sh
           
     - name: Final health check
       uses: appleboy/ssh-action@v1.0.3
@@ -135,7 +140,17 @@ jobs:
           if timeout 5 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
             echo "✅ WS OK"
           else
-            echo "❌ WS недоступен" && exit 1
+            echo "❌ WS недоступен"
+            echo "Запускаем финальное исправление..."
+            cd /root/TelegramVoice
+            chmod +x ultimate-ws-fix.sh
+            ./ultimate-ws-fix.sh
+            # Проверяем еще раз
+            if timeout 5 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
+              echo "✅ WS восстановлен"
+            else
+              echo "❌ WS все еще недоступен" && exit 1
+            fi
           fi
           # HTTP
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:3000 || echo "000")

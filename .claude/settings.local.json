@@ -46,7 +46,10 @@
       "Bash(gh run view:*)",
       "Bash(pm2 status:*)",
       "Bash(wmic:*)",
-      "Bash(start /B cargo run --manifest-path Cargo.toml)"
+      "Bash(start /B cargo run --manifest-path Cargo.toml)",
+      "Bash(chmod:*)",
+      "Bash(./test-before-commit.sh:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   }
