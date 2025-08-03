@@ -186,6 +186,14 @@ echo "Процессы на порту 8080:"
 lsof -i:8080 2>/dev/null || echo "Никто не слушает порт 8080"
 echo
 
+# Проверка - может сервер уже работает?
+if lsof -i:8080 >/dev/null 2>&1 && timeout 2 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
+    echo "✅ WebSocket сервер УЖЕ РАБОТАЕТ и отвечает!"
+    echo "Нет необходимости в перезапуске."
+    exit 0
+fi
+echo
+
 # Очистка
 cleanup
 

@@ -65,9 +65,9 @@ jobs:
           # Остановка старых процессов PM2
           pm2 delete all || true
           
-          # Запуск WebSocket сервера через ultimate fix
-          chmod +x ultimate-ws-fix.sh
-          ./ultimate-ws-fix.sh
+          # Запуск WebSocket сервера через smart start
+          chmod +x smart-ws-start.sh
+          ./smart-ws-start.sh || (chmod +x ultimate-ws-fix.sh && ./ultimate-ws-fix.sh)
           
           # Запуск фронтенда через PM2
           cd mini-app
