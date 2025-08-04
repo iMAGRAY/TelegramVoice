@@ -14,9 +14,11 @@ module.exports = {
       log_file: '/root/TelegramVoice/logs/websocket-server-combined.log',
       time: true,
       instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s'
+      max_restarts: 3,
+      min_uptime: '10s',
+      restart_delay: 5000
     },
     {
       name: 'frontend',
@@ -31,9 +33,11 @@ module.exports = {
       log_file: '/root/TelegramVoice/logs/frontend-combined.log',
       time: true,
       instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s'
+      max_restarts: 3,
+      min_uptime: '10s',
+      restart_delay: 5000
     }
   ]
 };

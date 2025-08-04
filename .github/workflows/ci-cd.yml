@@ -178,7 +178,17 @@ jobs:
             ls -la ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/
             
             # Остановим старые процессы
+            echo "🛑 Остановка старых процессов..."
             pm2 stop all || true
+            pm2 delete all || true
+            
+            # Убиваем процессы на портах 8080 и 3000
+            echo "🔪 Освобождение портов..."
+            fuser -k 8080/tcp || true
+            fuser -k 3000/tcp || true
+            
+            # Ждем освобождения портов
+            sleep 3
             
             # Переходим в директорию проекта
             cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
@@ -230,9 +240,11 @@ jobs:
                   log_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/websocket-server-combined.log',
                   time: true,
                   instances: 1,
+                  exec_mode: 'fork',
                   autorestart: true,
-                  max_restarts: 10,
-                  min_uptime: '10s'
+                  max_restarts: 3,
+                  min_uptime: '10s',
+                  restart_delay: 5000
                 },
                 {
                   name: 'frontend',
@@ -247,9 +259,11 @@ jobs:
                   log_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/frontend-combined.log',
                   time: true,
                   instances: 1,
+                  exec_mode: 'fork',
                   autorestart: true,
-                  max_restarts: 10,
-                  min_uptime: '10s'
+                  max_restarts: 3,
+                  min_uptime: '10s',
+                  restart_delay: 5000
                 }
               ]
             };
@@ -269,16 +283,33 @@ jobs:
             echo "WebSocket server dist папка:"
             ls -la websocket-server/dist/
             
-            # Удаляем старые процессы PM2
-            pm2 delete all || true
+            # Финальная очистка PM2
+            echo "🧹 Финальная очистка PM2..."
+            pm2 kill || true
+            sleep 2
+            
+            # Проверяем что порты свободны
+            echo "🔍 Проверка портов перед запуском..."
+            if netstat -tlnp | grep :8080; then
+              echo "⚠️ Порт 8080 все еще занят, принудительно освобождаем..."
+              fuser -k 8080/tcp || true
+              sleep 2
+            fi
+            
+            if netstat -tlnp | grep :3000; then
+              echo "⚠️ Порт 3000 все еще занят, принудительно освобождаем..."
+              fuser -k 3000/tcp || true
+              sleep 2
+            fi
             
             # Запускаем через PM2
             echo "🚀 Запуск PM2 процессов..."
             pm2 start ecosystem.config.js
             pm2 save
             
-            # Ждем немного для запуска
-            sleep 5
+            # Ждем запуска сервисов
+            echo "⏳ Ожидание запуска сервисов..."
+            sleep 15
             
             # Проверяем статус
             echo "📊 Статус PM2 после запуска:"
