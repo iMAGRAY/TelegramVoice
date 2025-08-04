@@ -182,6 +182,17 @@ jobs:
             pm2 stop all || true
             pm2 delete all || true
             
+            # Убиваем конфликтующие процессы (Rust сервер)
+            echo "🔪 Остановка конфликтующих процессов..."
+            pkill -f signaling-server || true
+            pkill -f "target/release/signaling-server" || true
+            
+            # Переименовываем Rust бинарник чтобы он не запускался
+            if [ -f "signaling-server/target/release/signaling-server" ]; then
+              mv signaling-server/target/release/signaling-server signaling-server/target/release/signaling-server.bak || true
+              echo "✅ Rust сервер отключен"
+            fi
+            
             # Убиваем процессы на портах 8080 и 3000
             echo "🔪 Освобождение портов..."
             fuser -k 8080/tcp || true
@@ -270,10 +281,10 @@ jobs:
             EOF
             fi
             
-            # Устанавливаем serve глобально если не установлен
-            if ! command -v serve &> /dev/null; then
-              echo "📦 Устанавливаем serve..."
-              npm install -g serve
+            # Устанавливаем http-server глобально если не установлен
+            if ! command -v http-server &> /dev/null; then
+              echo "📦 Устанавливаем http-server..."
+              npm install -g http-server
             fi
             
             # Проверяем наличие файлов перед запуском
