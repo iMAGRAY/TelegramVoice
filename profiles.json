@@ -3,10 +3,10 @@
     "host": "89.23.115.156",
     "port": 22,
     "username": "root",
-    "password": "dfb4ebe48668726897ae8384220fcbdc:e7693709f58a45c3b7a6050b9bc3649a",
+    "password": "1d1474fefceb7ec5cf5bc06c1eea6016:c756cab8348f69b5ce77ac0aff9aae58",
     "type": "ssh",
     "encrypted": true,
-    "created_at": "2025-08-04T16:47:58.131Z",
-    "updated_at": "2025-08-04T16:47:58.131Z"
+    "created_at": "2025-08-04T17:37:23.942Z",
+    "updated_at": "2025-08-04T17:37:23.942Z"
   }
 }
