@@ -8,5 +8,15 @@
     "encrypted": true,
     "created_at": "2025-08-04T11:33:25.566Z",
     "updated_at": "2025-08-04T11:33:25.566Z"
+  },
+  "default": {
+    "host": "89.23.115.156",
+    "port": 22,
+    "username": "root",
+    "password": "5ebcb45b5a7eaf6800ba557f1260a1dc:2c10cf0c629b70d4a6ca4e4d41442062",
+    "type": "ssh",
+    "encrypted": true,
+    "created_at": "2025-08-04T12:25:58.521Z",
+    "updated_at": "2025-08-04T12:25:58.521Z"
   }
 }
