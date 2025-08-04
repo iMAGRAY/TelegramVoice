@@ -8,6 +8,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { SimpleRoomsList } from '@/components/SimpleRoomsList';
 import { SimpleVoiceRoom } from '@/components/SimpleVoiceRoom';
 import { SettingsPage } from '@/components/SettingsPage';
+import { DebugModal } from '@/components/DebugModal';
+import { useDebugConsole } from '@/hooks/useDebugConsole';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
@@ -23,6 +25,16 @@ export default function Home() {
   });
 
   const [показать_настройки, setПоказать_настройки] = useState(false);
+  
+  // Debug console хук
+  const { показать_отладку, закрыть_отладку } = useDebugConsole();
+
+  // Добавляем приветственное сообщение в лог при загрузке
+  useEffect(() => {
+    console.log('[App] 🚀 Telegram Voice Mini App инициализирован');
+    console.log('[App] 🔧 Debug Console доступен: F12 или тройной тап в правом верхнем углу');
+    console.log('[App] 📱 Поддержка Telegram Web App:', typeof window !== 'undefined' && !!window.Telegram?.WebApp);
+  }, []);
   
   const { 
     настройки, 
@@ -310,6 +322,12 @@ export default function Home() {
           на_сохранить={сохранить_и_закрыть_настройки}
         />
       )}
+
+      {/* Debug Modal */}
+      <DebugModal
+        открыт={показать_отладку}
+        на_закрыть={закрыть_отладку}
+      />
 
       {/* Отображение ошибок */}
       {состояние.ошибка && (
