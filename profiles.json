@@ -3,20 +3,10 @@
     "host": "89.23.115.156",
     "port": 22,
     "username": "root",
-    "password": "0c658c75cc4199eb1637c855d378c273:cb588b95ac8fa3363044075358eda7b5",
+    "password": "bc0150cf0e23ce832d393577cf2d023b:d81a37c491900b168f45311fdbbc53fc",
     "type": "ssh",
     "encrypted": true,
-    "created_at": "2025-08-04T13:14:22.229Z",
-    "updated_at": "2025-08-04T13:14:22.229Z"
-  },
-  "production": {
-    "host": "89.23.115.156",
-    "port": 22,
-    "username": "root",
-    "password": "8d0123bcc3db3f8dd445270388b5b51f:37ab2909356c66a6eed828374795f7f0",
-    "type": "ssh",
-    "encrypted": true,
-    "created_at": "2025-08-04T14:00:12.151Z",
-    "updated_at": "2025-08-04T14:00:12.151Z"
+    "created_at": "2025-08-04T16:18:11.397Z",
+    "updated_at": "2025-08-04T16:18:11.397Z"
   }
 }

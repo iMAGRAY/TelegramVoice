@@ -95,11 +95,33 @@ export const useWebRTC = ({
   // Создание нового peer соединения
   const создать_peer = useCallback((удаленный_пользователь_id: string, инициатор: boolean = false) => {
     try {
+      console.log(`[WebRTC] Создание peer соединения для ${удаленный_пользователь_id}`, {
+        инициатор,
+        есть_локальный_поток: !!локальный_поток_ref.current,
+        аудио_треки: локальный_поток_ref.current?.getAudioTracks().length || 0,
+        треки_включены: локальный_поток_ref.current?.getAudioTracks().map(t => ({ id: t.id, enabled: t.enabled }))
+      });
+      
+      // КРИТИЧНО: Проверяем наличие локального потока
+      if (!локальный_поток_ref.current) {
+        console.error('[WebRTC] ОШИБКА: Попытка создать peer соединение без локального потока!');
+        return null;
+      }
+      
       const peer = new SimplePeer({
         initiator: инициатор,
-        trickle: false,
-        stream: локальный_поток_ref.current || undefined,
-        config: ice_config
+        trickle: true, // КРИТИЧНО: включаем trickle ICE для быстрого соединения
+        stream: локальный_поток_ref.current,
+        config: ice_config,
+        // Дополнительные настройки для улучшения качества связи
+        offerOptions: {
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: false
+        },
+        answerOptions: {
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: false
+        }
       });
 
       const подключение: WebRTCПодключение = {
@@ -111,7 +133,7 @@ export const useWebRTC = ({
 
       // Обработка сигналов
       peer.on('signal', (сигнал) => {
-        // Отправка WebRTC сигнала
+        console.log(`[WebRTC] Отправка сигнала типа '${сигнал.type}' пользователю ${удаленный_пользователь_id}`);
         
         // Используем метод отправки WebRTC сигнала - отправляем удаленному пользователю!
         socket?.отправить_webrtc_сигнал(сигнал, удаленный_пользователь_id, комната_id);
@@ -119,6 +141,14 @@ export const useWebRTC = ({
 
       // Получение удаленного потока
       peer.on('stream', (удаленный_поток) => {
+        console.log(`[WebRTC] Получен удаленный поток от ${удаленный_пользователь_id}`, {
+          треки: удаленный_поток.getTracks().map(t => ({ 
+            вид: t.kind, 
+            включен: t.enabled,
+            id: t.id
+          }))
+        });
+        
         подключение.поток = удаленный_поток;
         подключение.подключен = true;
         
@@ -130,8 +160,29 @@ export const useWebRTC = ({
 
       // Обработка подключения
       peer.on('connect', () => {
-        // WebRTC соединение установлено
+        console.log(`[WebRTC] ✅ Соединение установлено с ${удаленный_пользователь_id}`);
         подключение.подключен = true;
+        
+        // КРИТИЧНО: Проверяем состояние потока после подключения
+        const pc = (peer as any)._pc as RTCPeerConnection;
+        if (pc) {
+          console.log('[WebRTC] Состояние соединения:', {
+            connectionState: pc.connectionState,
+            iceConnectionState: pc.iceConnectionState,
+            iceGatheringState: pc.iceGatheringState,
+            signalingState: pc.signalingState,
+            localStreams: pc.getSenders().map(s => ({
+              track: s.track?.kind,
+              enabled: s.track?.enabled,
+              readyState: s.track?.readyState
+            })),
+            remoteStreams: pc.getReceivers().map(r => ({
+              track: r.track?.kind,
+              enabled: r.track?.enabled,
+              readyState: r.track?.readyState
+            }))
+          });
+        }
       });
 
       // Обработка закрытия
@@ -142,9 +193,29 @@ export const useWebRTC = ({
 
       // Обработка ошибок
       peer.on('error', (error) => {
-        // WebRTC ошибка соединения
+        console.error(`[WebRTC] Ошибка соединения с ${удаленный_пользователь_id}:`, error);
         удалить_peer(удаленный_пользователь_id);
       });
+      
+      // КРИТИЧНО: Мониторинг ICE состояния
+      const pc = (peer as any)._pc as RTCPeerConnection;
+      if (pc) {
+        pc.addEventListener('iceconnectionstatechange', () => {
+          console.log(`[WebRTC] ICE состояние с ${удаленный_пользователь_id}: ${pc.iceConnectionState}`);
+          
+          if (pc.iceConnectionState === 'failed') {
+            console.error(`[WebRTC] ⚠️ ICE соединение не удалось с ${удаленный_пользователь_id}`);
+          }
+        });
+        
+        pc.addEventListener('icegatheringstatechange', () => {
+          console.log(`[WebRTC] ICE gathering состояние с ${удаленный_пользователь_id}: ${pc.iceGatheringState}`);
+        });
+        
+        pc.addEventListener('connectionstatechange', () => {
+          console.log(`[WebRTC] Общее состояние соединения с ${удаленный_пользователь_id}: ${pc.connectionState}`);
+        });
+      }
 
       подключения_ref.current.set(удаленный_пользователь_id, подключение);
       setПодключения(prev => new Map(prev.set(удаленный_пользователь_id, подключение)));
@@ -175,15 +246,30 @@ export const useWebRTC = ({
   }, [на_отключение_пользователя]);
 
   // Обработка входящих сигналов WebRTC
-  const обработать_сигнал = useCallback((сообщение: СообщениеВебСокета) => {
-    const { тип, данные, от } = сообщение;
+  const обработать_сигнал = useCallback((сообщение: any) => {
+    console.log('[WebRTC] Получен сигнал:', сообщение);
     
-    if (!от) return;
+    // Сервер отправляет сообщение с полями: тип: 'webrtc-signal', от, к, комната, данные
+    const { от, данные } = сообщение;
+    
+    if (!от || !данные) return;
 
     let подключение = подключения_ref.current.get(от);
 
-    if (тип === 'offer') {
+    // SimplePeer использует данные с полем type для определения типа сигнала
+    const тип_сигнала = данные.type || данные.candidate?.type;
+    
+    console.log(`[WebRTC] Получен сигнал типа '${тип_сигнала}' от ${от}`);
+    
+    if (тип_сигнала === 'offer') {
+      // КРИТИЧНО: Проверяем наличие локального потока перед созданием ответного соединения
+      if (!локальный_поток_ref.current) {
+        console.error(`[WebRTC] Получен offer от ${от}, но нет локального потока - игнорируем`);
+        return;
+      }
+      
       if (!подключение) {
+        console.log(`[WebRTC] Создание peer соединения для ответа пользователю ${от}`);
         создать_peer(от, false);
         подключение = подключения_ref.current.get(от);
       }
@@ -191,15 +277,23 @@ export const useWebRTC = ({
       if (подключение) {
         подключение.peer.signal(данные);
       }
-    } else if (тип === 'answer' && подключение) {
+    } else if (подключение) {
+      // Обрабатываем answer и candidate (trickle ICE)
+      console.log(`[WebRTC] Обработка сигнала от ${от}`);
       подключение.peer.signal(данные);
-    } else if (тип === 'ice-candidate' && подключение) {
-      подключение.peer.signal(данные);
+    } else if (!подключение && тип_сигнала !== 'offer') {
+      console.warn(`[WebRTC] Получен сигнал от ${от}, но соединение еще не создано`);
     }
   }, [создать_peer]);
 
   // Подключение к новому пользователю
   const подключиться_к_пользователю = useCallback((пользователь_id: string) => {
+    // КРИТИЧНО: Проверяем наличие локального потока перед подключением
+    if (!локальный_поток_ref.current) {
+      console.warn(`[WebRTC] Попытка подключиться к ${пользователь_id} без локального потока - отклонено`);
+      return;
+    }
+    
     if (!подключения_ref.current.has(пользователь_id)) {
       создать_peer(пользователь_id, true);
     }
@@ -285,7 +379,7 @@ export const useWebRTC = ({
     }
   }, [socket, обработать_сигнал]);
 
-  // ИСПРАВЛЕНИЕ: Синхронизация состояния при изменении потока
+  // ИСПРАВЛЕНИЕ: Синхронизация состояния при изменении потока (только один раз)
   useEffect(() => {
     if (локальный_поток) {
       // Даем небольшую задержку для стабилизации состояния
@@ -295,7 +389,7 @@ export const useWebRTC = ({
       
       return () => clearTimeout(timer);
     }
-  }, [локальный_поток, синхронизировать_состояние_микрофона]);
+  }, [локальный_поток]); // Убираем синхронизировать_состояние_микрофона из зависимостей
 
   // Очистка при размонтировании
   useEffect(() => {

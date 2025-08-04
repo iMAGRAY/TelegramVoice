@@ -53,7 +53,10 @@
       "WebFetch(domain:hesovoice.online)",
       "Bash(./auto-deploy.sh)",
       "Bash(expect:*)",
-      "mcp__postgresql-api-ssh-mcp-server__mcp_api_client"
+      "mcp__postgresql-api-ssh-mcp-server__mcp_api_client",
+      "Bash(start /B cmd /c \"cd mini-app && npm run dev\")",
+      "Bash(start /B npm run dev)",
+      "Bash(start /B cmd /c \"cd websocket-server && npm run dev\")"
     ],
     "deny": []
   }

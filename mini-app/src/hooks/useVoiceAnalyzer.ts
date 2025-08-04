@@ -27,17 +27,27 @@ export const useVoiceAnalyzer = ({
         cancelAnimationFrame(анимация_id);
       }
       
-      worklet_node_ref.current.disconnect();
+      try {
+        worklet_node_ref.current.disconnect();
+      } catch (e) {
+        // Игнорируем ошибки отключения
+      }
       worklet_node_ref.current = null;
     }
     
     if (source_node_ref.current) {
-      source_node_ref.current.disconnect();
+      try {
+        source_node_ref.current.disconnect();
+      } catch (e) {
+        // Игнорируем ошибки отключения
+      }
       source_node_ref.current = null;
     }
     
     if (audio_context_ref.current && audio_context_ref.current.state !== 'closed') {
-      audio_context_ref.current.close();
+      audio_context_ref.current.close().catch(() => {
+        // Игнорируем ошибки закрытия
+      });
       audio_context_ref.current = null;
     }
   }, []);
@@ -45,23 +55,38 @@ export const useVoiceAnalyzer = ({
   const setupAnalyzer = useCallback(async () => {
     if (!поток) return;
 
+    // Очищаем предыдущие ресурсы перед созданием новых
+    cleanup();
+
     try {
-      // Создаем AudioContext
-      const audio_context = new AudioContext();
-      audio_context_ref.current = audio_context;
+      // Проверяем состояние существующего контекста
+      if (audio_context_ref.current && audio_context_ref.current.state === 'closed') {
+        audio_context_ref.current = null;
+      }
+      
+      // Создаем AudioContext только если его нет
+      if (!audio_context_ref.current) {
+        const audio_context = new AudioContext();
+        audio_context_ref.current = audio_context;
+      }
+      
+      // Проверяем что контекст не закрыт
+      if (audio_context_ref.current.state === 'closed') {
+        return;
+      }
 
       // Загружаем AudioWorklet
       try {
-        await audio_context.audioWorklet.addModule('/audio-worklet-processor.js');
+        await audio_context_ref.current.audioWorklet.addModule('/audio-worklet-processor.js');
       } catch (error) {
         // Fallback на простой AnalyserNode без ScriptProcessorNode
-        setupAnalyserFallback(audio_context);
+        setupAnalyserFallback(audio_context_ref.current);
         return;
       }
 
       // Создаем узлы
-      const source = audio_context.createMediaStreamSource(поток);
-      const worklet_node = new AudioWorkletNode(audio_context, 'voice-analyzer-processor');
+      const source = audio_context_ref.current.createMediaStreamSource(поток);
+      const worklet_node = new AudioWorkletNode(audio_context_ref.current, 'voice-analyzer-processor');
       
       source_node_ref.current = source;
       worklet_node_ref.current = worklet_node;
@@ -81,7 +106,7 @@ export const useVoiceAnalyzer = ({
 
       // Подключаем узлы
       source.connect(worklet_node);
-      worklet_node.connect(audio_context.destination);
+      worklet_node.connect(audio_context_ref.current.destination);
 
     } catch (error) {
       // Fallback на простой AnalyserNode если не удалось создать AudioWorklet
@@ -96,6 +121,11 @@ export const useVoiceAnalyzer = ({
     if (!поток) return;
 
     try {
+      // Проверяем что контекст не закрыт
+      if (audio_context.state === 'closed') {
+        return;
+      }
+      
       const source = audio_context.createMediaStreamSource(поток);
       const analyser = audio_context.createAnalyser();
       
@@ -138,19 +168,22 @@ export const useVoiceAnalyzer = ({
 
   // Настраиваем анализатор при изменении потока
   useEffect(() => {
+    let таймаут: NodeJS.Timeout;
+    
     if (поток) {
-      setupAnalyzer();
+      // Добавляем небольшую задержку чтобы избежать множественных вызовов
+      таймаут = setTimeout(() => {
+        setupAnalyzer();
+      }, 100);
     } else {
       cleanup();
     }
 
-    return cleanup;
-  }, [поток, setupAnalyzer, cleanup]);
-
-  // Очистка при размонтировании
-  useEffect(() => {
-    return cleanup;
-  }, [cleanup]);
+    return () => {
+      clearTimeout(таймаут);
+      cleanup();
+    };
+  }, [поток]); // Убираем setupAnalyzer и cleanup из зависимостей
 
   return {
     cleanup
