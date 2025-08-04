@@ -23,7 +23,7 @@ module.exports = {
     {
       name: 'frontend',
       script: 'npx',
-      args: ['serve', 'out', '-l', '3000', '--single'],
+      args: ['serve', 'out', '-l', 'tcp://0.0.0.0:3000', '--single'],
       cwd: '/root/TelegramVoice/mini-app',
       env: {
         NODE_ENV: 'production'
