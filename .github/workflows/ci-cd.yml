@@ -9,24 +9,49 @@ on:
       - main
 
 jobs:
-  # 1) Билд фронтенда и WebSocket сервера + upload artifacts
+  # 1) Проверка качества кода
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test frontend build
+        working-directory: mini-app
+        run: |
+          npm install
+          npm run build
+          echo "✅ Frontend сборка прошла успешно"
+
+      - name: Test WebSocket server build
+        working-directory: websocket-server
+        run: |
+          npm install
+          npm run build
+          echo "✅ WebSocket сервер сборка прошла успешно"
+
+  # 2) Билд фронтенда и WebSocket сервера + upload artifacts
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       # --- Frontend build (static export) ---
-      - name: Setup Node.js
+      - name: Setup Node.js for Frontend
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: mini-app/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: mini-app
-        run: npm ci
+        run: npm install
 
       - name: Build and export frontend
         working-directory: mini-app
@@ -41,9 +66,14 @@ jobs:
           path: mini-app/out
 
       # --- WebSocket Server build ---
+      - name: Setup Node.js for WebSocket Server
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install WebSocket server dependencies
         working-directory: websocket-server
-        run: npm ci
+        run: npm install
 
       - name: Build WebSocket server
         working-directory: websocket-server
@@ -58,9 +88,9 @@ jobs:
             websocket-server/package.json
             websocket-server/package-lock.json
 
-  # 2) Деплой артефактов на сервер
+  # 3) Деплой артефактов на сервер
   deploy:
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
@@ -85,8 +115,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           source: "frontend-out/*"
-          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out/"
+          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/"
           strip_components: 1
+          overwrite: true
 
       - name: Copy WebSocket server to server  
         uses: appleboy/scp-action@v0.1.7
@@ -96,8 +127,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           source: "websocket-server/*"
-          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/"
+          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/"
           strip_components: 1
+          overwrite: true
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -107,17 +139,77 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
+            echo "🚀 Начинаем развертывание..."
+            
+            # Создаем необходимые директории
+            mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out
+            mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/dist
+            
             # Остановим старые процессы
             pm2 stop all || true
-
-            # Устанавливаем зависимости WebSocket сервера
-            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server
-            npm ci --only=production
-
-            # Запускаем через PM2
+            
+            # Переходим в директорию проекта
             cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+            
+            # Устанавливаем зависимости WebSocket сервера
+            cd websocket-server
+            if [ -f "package.json" ]; then
+              npm install --only=production
+              echo "✅ Зависимости WebSocket сервера установлены"
+            else
+              echo "❌ package.json не найден в websocket-server"
+              exit 1
+            fi
+            
+            # Возвращаемся в корень проекта
+            cd ..
+            
+            # Проверяем наличие ecosystem.config.js
+            if [ ! -f "ecosystem.config.js" ]; then
+              echo "📝 Создаем ecosystem.config.js..."
+              cat > ecosystem.config.js << 'EOF'
+            module.exports = {
+              apps: [
+                {
+                  name: 'websocket-server',
+                  script: 'dist/index.js',
+                  cwd: './websocket-server',
+                  env: {
+                    NODE_ENV: 'production',
+                    PORT: 8080
+                  },
+                  instances: 1,
+                  autorestart: true,
+                  watch: false,
+                  max_memory_restart: '1G'
+                },
+                {
+                  name: 'frontend',
+                  script: 'serve',
+                  args: '-s out -l 3000',
+                  cwd: './mini-app',
+                  env: {
+                    NODE_ENV: 'production'
+                  },
+                  instances: 1,
+                  autorestart: true,
+                  watch: false
+                }
+              ]
+            };
+            EOF
+            fi
+            
+            # Устанавливаем serve глобально если не установлен
+            if ! command -v serve &> /dev/null; then
+              npm install -g serve
+            fi
+            
+            # Запускаем через PM2
             pm2 start ecosystem.config.js
             pm2 save
+            
+            echo "✅ Развертывание завершено"
 
       - name: Post-deploy monitoring
         uses: appleboy/ssh-action@v1.0.3
@@ -127,21 +219,47 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            echo "🌐 Проверка доступности..."
-
-            # WebSocket
-            if timeout 5 bash -c "cat < /dev/tcp/${{ secrets.SERVER_HOST }}/8080" &>/dev/null; then
-              echo "✅ WS OK"
+            echo "🔍 Проверка состояния сервисов..."
+            
+            # Ждем запуска сервисов
+            sleep 10
+            
+            # Проверяем PM2 процессы
+            echo "📊 Статус PM2:"
+            pm2 status
+            
+            # Проверяем WebSocket сервер
+            echo "🔌 Проверка WebSocket сервера..."
+            if timeout 10 bash -c "cat < /dev/tcp/localhost/8080" &>/dev/null; then
+              echo "✅ WebSocket сервер доступен на порту 8080"
             else
-              echo "❌ WS недоступен" && exit 1
+              echo "❌ WebSocket сервер недоступен на порту 8080"
+              pm2 logs websocket-server --lines 10
+              exit 1
             fi
-
-            # HTTP
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://${{ secrets.SERVER_HOST }}:3000 || echo "000")
+            
+            # Проверяем HTTP сервер
+            echo "🌐 Проверка HTTP сервера..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:3000 || echo "000")
             if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "404" ]]; then
-              echo "✅ HTTP OK (код $HTTP_CODE)"
+              echo "✅ HTTP сервер доступен на порту 3000 (код $HTTP_CODE)"
             else
-              echo "❌ HTTP недоступен (код $HTTP_CODE)" && exit 1
+              echo "❌ HTTP сервер недоступен на порту 3000 (код $HTTP_CODE)"
+              pm2 logs frontend --lines 10
+              exit 1
             fi
-
-            echo "🎉 Деплой пройден успешно!"
+            
+            # Проверяем внешнюю доступность
+            echo "🌍 Проверка внешней доступности..."
+            EXTERNAL_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 http://${{ secrets.SERVER_HOST }}:3000 || echo "000")
+            if [[ "$EXTERNAL_HTTP" == "200" || "$EXTERNAL_HTTP" == "404" ]]; then
+              echo "✅ Внешний доступ работает (код $EXTERNAL_HTTP)"
+            else
+              echo "⚠️ Внешний доступ может быть ограничен (код $EXTERNAL_HTTP)"
+            fi
+            
+            echo ""
+            echo "🎉 Развертывание успешно завершено!"
+            echo "📊 Доступные URL:"
+            echo "   • HTTP: http://${{ secrets.SERVER_HOST }}:3000"
+            echo "   • WebSocket: ws://${{ secrets.SERVER_HOST }}:8080"
