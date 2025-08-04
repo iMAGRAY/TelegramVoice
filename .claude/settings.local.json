@@ -50,7 +50,9 @@
       "Bash(chmod:*)",
       "Bash(./test-before-commit.sh:*)",
       "Bash(bash:*)",
-      "WebFetch(domain:hesovoice.online)"
+      "WebFetch(domain:hesovoice.online)",
+      "Bash(./auto-deploy.sh)",
+      "Bash(expect:*)"
     ],
     "deny": []
   }

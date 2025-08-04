@@ -84,9 +84,9 @@ npm test       # Запуск с автоматическими тестами
    - `git push origin main`
 
 3. **Обновление на продакшен сервере**
-   - SSH подключение к серверу 89.23.115.156
+   - SSH подключение к серверу 89.23.115.156 используя MCP SSH tool (SERVER_HOST=89.23.115.156, SERVER_USER=root, SERVER_PASSWORD=Q3N9c[Zs)
    - `cd /root/TelegramVoice && git pull origin main`
-   - Пересборка и перезапуск сервисов
+   - Ручная пересборка и перезапуск pm2
    - Тестирование на продакшене
 
 ### ЗАПРЕЩЕНО:
@@ -94,17 +94,30 @@ npm test       # Запуск с автоматическими тестами
 - ❌ Копировать файлы с сервера на локальную машину для разработки
 - ❌ Делать hotfix-ы на продакшене без git
 
-### Команды для развертывания на сервере:
+### ОБЯЗАТЕЛЬНЫЕ команды для развертывания на сервере:
 ```bash
-# Автоматическое развертывание (рекомендуется)
-cd /root/TelegramVoice
-./deploy.sh
+# КРИТИЧЕСКИ ВАЖНО: Подключение через MCP SSH tool
+# SERVER_HOST=89.23.115.156
+# SERVER_USER=root
+# SERVER_PASSWORD=cMoTy7E5,JjLV3
 
-# Или ручное развертывание:
+# Обязательные команды после подключения:
+cd /root/TelegramVoice
 git pull origin main
 cd mini-app && npm install && npm run build
 cd ../websocket-server && npm install && npm run build
 pm2 restart ecosystem.config.js
+
+# Альтернатива (автоматический скрипт):
+./deploy.sh
+
+# ВАЖНО: Команды для проверки логов через SSH
+# pm2 logs без параметров - зависает в режиме tailing
+# Используйте ТОЛЬКО:
+pm2 status                    # Статус процессов
+timeout 5 pm2 logs --lines 10  # Логи с ограничением времени
+pm2 show <process-name>       # Подробная информация о процессе
+pm2 monit                     # Интерактивный мониторинг (осторожно - может зависнуть)
 ```
 
 ## CI/CD Pipeline

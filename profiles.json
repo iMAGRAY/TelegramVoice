@@ -1,22 +1,12 @@
 {
-  "telegram_voice_server": {
-    "host": "89.23.115.156",
-    "port": 22,
-    "username": "root",
-    "password": "79737b2c73f85929e70558e4681c6bd8:fb4101083ab8869193d48af93353ef0d",
-    "type": "ssh",
-    "encrypted": true,
-    "created_at": "2025-08-04T11:33:25.566Z",
-    "updated_at": "2025-08-04T11:33:25.566Z"
-  },
   "default": {
     "host": "89.23.115.156",
     "port": 22,
     "username": "root",
-    "password": "5ebcb45b5a7eaf6800ba557f1260a1dc:2c10cf0c629b70d4a6ca4e4d41442062",
+    "password": "0c658c75cc4199eb1637c855d378c273:cb588b95ac8fa3363044075358eda7b5",
     "type": "ssh",
     "encrypted": true,
-    "created_at": "2025-08-04T12:25:58.521Z",
-    "updated_at": "2025-08-04T12:25:58.521Z"
+    "created_at": "2025-08-04T13:14:22.229Z",
+    "updated_at": "2025-08-04T13:14:22.229Z"
   }
 }

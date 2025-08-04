@@ -1,0 +1,9 @@
+#!/bin/bash
+spawn ssh -o StrictHostKeyChecking=no root@89.23.115.156
+expect "password:"
+send "Q3N9c[Zs\r"
+expect "#"
+send "cd /root/TelegramVoice && git pull origin main\r"
+expect "#"
+send "exit\r"
+expect eof
