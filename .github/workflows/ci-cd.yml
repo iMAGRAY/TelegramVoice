@@ -83,10 +83,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: websocket-server
+          path: websocket-server/
+
+      - name: Upload project config files
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-config
           path: |
-            websocket-server/dist
-            websocket-server/package.json
-            websocket-server/package-lock.json
+            ecosystem.config.js
+            deploy.sh
+            monitor.sh
 
   # 3) Деплой артефактов на сервер
   deploy:
@@ -107,6 +113,12 @@ jobs:
           name: websocket-server
           path: websocket-server
 
+      - name: Download project config files
+        uses: actions/download-artifact@v4
+        with:
+          name: project-config
+          path: project-config
+
       - name: Copy frontend to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -115,7 +127,7 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           source: "frontend-out/*"
-          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/"
+          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out/"
           strip_components: 1
           overwrite: true
 
@@ -127,6 +139,18 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           source: "websocket-server/*"
+          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/"
+          strip_components: 1
+          overwrite: true
+
+      - name: Copy project config files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "project-config/*"
           target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/"
           strip_components: 1
           overwrite: true
@@ -141,9 +165,16 @@ jobs:
           script: |
             echo "🚀 Начинаем развертывание..."
             
+            # Отладочная информация
+            echo "📁 Проверка структуры проекта:"
+            ls -la ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/
+            
             # Создаем необходимые директории
             mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out
             mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/dist
+            
+            echo "📁 Содержимое websocket-server:"
+            ls -la ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/
             
             # Остановим старые процессы
             pm2 stop all || true
@@ -154,10 +185,24 @@ jobs:
             # Устанавливаем зависимости WebSocket сервера
             cd websocket-server
             if [ -f "package.json" ]; then
+              echo "📦 Найден package.json, устанавливаем зависимости..."
               npm install --only=production
               echo "✅ Зависимости WebSocket сервера установлены"
             else
               echo "❌ package.json не найден в websocket-server"
+              echo "📁 Содержимое текущей директории:"
+              ls -la
+              echo "📁 Содержимое родительской директории:"
+              ls -la ..
+              exit 1
+            fi
+            
+            # Проверяем наличие собранных файлов
+            if [ -d "dist" ]; then
+              echo "✅ Папка dist найдена"
+              ls -la dist/
+            else
+              echo "❌ Папка dist не найдена"
               exit 1
             fi
             
