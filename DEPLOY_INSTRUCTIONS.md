@@ -117,35 +117,31 @@ sudo certbot --nginx -d yourdomain.com
 
 ## Шаг 6: Установка TURN сервера (Coturn)
 
-Для обеспечения надежного WebRTC соединения, установите TURN сервер:
+Для обеспечения надежного WebRTC соединения, рекомендуется установить TURN сервер:
 
 ```bash
-# Загрузите и запустите скрипт установки
-cd /var/www/TelegramVoice
-chmod +x setup-coturn.sh
-sudo ./setup-coturn.sh
+# Установка Coturn
+sudo apt install -y coturn
+
+# Настройка конфигурации
+sudo nano /etc/turnserver.conf
 ```
 
-Скрипт автоматически:
-- Установит Coturn
-- Настроит конфигурацию с вашим внешним IP
-- Сгенерирует безопасный пароль
-- Настроит файрволл
-- Сохранит учетные данные в `/root/coturn-credentials.txt`
+Базовая конфигурация TURN сервера:
+```
+listening-port=3478
+external-ip=YOUR_SERVER_IP
+user=telegramvoice:YOUR_PASSWORD
+realm=hesovoice.online
+fingerprint
+lt-cred-mech
+```
 
-После установки обновите файл `.env.production` с учетными данными из `/root/coturn-credentials.txt`.
-
-### Проверка работы TURN сервера:
-
-```bash
-# Проверка статуса
-sudo systemctl status coturn
-
-# Просмотр логов
-sudo tail -f /var/log/turnserver.log
-
-# Тест подключения
-turnutils_uclient -v -t -T -u telegramvoice -w YOUR_PASSWORD turn:127.0.0.1:3478
+После настройки обновите файл `.env.production`:
+```
+NEXT_PUBLIC_CUSTOM_TURN_SERVER=turn:YOUR_SERVER_IP:3478
+NEXT_PUBLIC_TURN_USERNAME=telegramvoice
+NEXT_PUBLIC_TURN_CREDENTIAL=YOUR_PASSWORD
 ```
 
 ## Шаг 7: Сборка и запуск приложений
