@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Пользователь, Комната } from '@/types';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useMediaPermissions } from '@/hooks/useMediaPermissions';
