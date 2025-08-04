@@ -22,11 +22,12 @@ module.exports = {
     },
     {
       name: 'frontend',
-      script: 'npx',
-      args: ['http-server', 'out', '-p', '3000', '--cors', '-c-1', '--push-state'],
+      script: 'npm',
+      args: ['start'],
       cwd: '/root/TelegramVoice/mini-app',
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: 3000
       },
       error_file: '/root/TelegramVoice/logs/frontend-error.log',
       out_file: '/root/TelegramVoice/logs/frontend-out.log',
