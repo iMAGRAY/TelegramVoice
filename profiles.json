@@ -1,12 +1,12 @@
 {
-  "default": {
+  "production": {
     "host": "89.23.115.156",
     "port": 22,
     "username": "root",
-    "password": "bc0150cf0e23ce832d393577cf2d023b:d81a37c491900b168f45311fdbbc53fc",
+    "password": "dfb4ebe48668726897ae8384220fcbdc:e7693709f58a45c3b7a6050b9bc3649a",
     "type": "ssh",
     "encrypted": true,
-    "created_at": "2025-08-04T16:18:11.397Z",
-    "updated_at": "2025-08-04T16:18:11.397Z"
+    "created_at": "2025-08-04T16:47:58.131Z",
+    "updated_at": "2025-08-04T16:47:58.131Z"
   }
 }

@@ -57,7 +57,8 @@
       "Bash(start /B cmd /c \"cd mini-app && npm run dev\")",
       "Bash(start /B npm run dev)",
       "Bash(start /B cmd /c \"cd websocket-server && npm run dev\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }
