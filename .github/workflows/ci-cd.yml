@@ -172,6 +172,7 @@ jobs:
             # Создаем необходимые директории
             mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out
             mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/dist
+            mkdir -p ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs
             
             echo "📁 Содержимое websocket-server:"
             ls -la ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/
@@ -217,28 +218,38 @@ jobs:
               apps: [
                 {
                   name: 'websocket-server',
-                  script: 'dist/index.js',
-                  cwd: './websocket-server',
+                  script: 'node',
+                  args: 'dist/index.js',
+                  cwd: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server',
                   env: {
                     NODE_ENV: 'production',
                     PORT: 8080
                   },
+                  error_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/websocket-server-error.log',
+                  out_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/websocket-server-out.log',
+                  log_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/websocket-server-combined.log',
+                  time: true,
                   instances: 1,
                   autorestart: true,
-                  watch: false,
-                  max_memory_restart: '1G'
+                  max_restarts: 10,
+                  min_uptime: '10s'
                 },
                 {
                   name: 'frontend',
                   script: 'serve',
                   args: '-s out -l 3000',
-                  cwd: './mini-app',
+                  cwd: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app',
                   env: {
                     NODE_ENV: 'production'
                   },
+                  error_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/frontend-error.log',
+                  out_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/frontend-out.log',
+                  log_file: '${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/logs/frontend-combined.log',
+                  time: true,
                   instances: 1,
                   autorestart: true,
-                  watch: false
+                  max_restarts: 10,
+                  min_uptime: '10s'
                 }
               ]
             };
@@ -247,12 +258,31 @@ jobs:
             
             # Устанавливаем serve глобально если не установлен
             if ! command -v serve &> /dev/null; then
+              echo "📦 Устанавливаем serve..."
               npm install -g serve
             fi
             
+            # Проверяем наличие файлов перед запуском
+            echo "🔍 Финальная проверка файлов:"
+            echo "Frontend out папка:"
+            ls -la mini-app/out/ | head -5
+            echo "WebSocket server dist папка:"
+            ls -la websocket-server/dist/
+            
+            # Удаляем старые процессы PM2
+            pm2 delete all || true
+            
             # Запускаем через PM2
+            echo "🚀 Запуск PM2 процессов..."
             pm2 start ecosystem.config.js
             pm2 save
+            
+            # Ждем немного для запуска
+            sleep 5
+            
+            # Проверяем статус
+            echo "📊 Статус PM2 после запуска:"
+            pm2 status
             
             echo "✅ Развертывание завершено"
 
@@ -279,7 +309,14 @@ jobs:
               echo "✅ WebSocket сервер доступен на порту 8080"
             else
               echo "❌ WebSocket сервер недоступен на порту 8080"
-              pm2 logs websocket-server --lines 10
+              echo "📝 Логи WebSocket сервера:"
+              pm2 logs websocket-server --lines 20 --nostream
+              echo "📝 Ошибки WebSocket сервера:"
+              if [ -f "logs/websocket-server-error.log" ]; then
+                tail -20 logs/websocket-server-error.log
+              fi
+              echo "📊 Статус процесса:"
+              pm2 describe websocket-server
               exit 1
             fi
             
@@ -290,7 +327,14 @@ jobs:
               echo "✅ HTTP сервер доступен на порту 3000 (код $HTTP_CODE)"
             else
               echo "❌ HTTP сервер недоступен на порту 3000 (код $HTTP_CODE)"
-              pm2 logs frontend --lines 10
+              echo "📝 Логи Frontend сервера:"
+              pm2 logs frontend --lines 20 --nostream
+              echo "📝 Ошибки Frontend сервера:"
+              if [ -f "logs/frontend-error.log" ]; then
+                tail -20 logs/frontend-error.log
+              fi
+              echo "📊 Статус процесса:"
+              pm2 describe frontend
               exit 1
             fi
             

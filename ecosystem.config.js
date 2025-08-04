@@ -2,11 +2,12 @@ module.exports = {
   apps: [
     {
       name: 'websocket-server',
-      script: 'npm',
-      args: 'start',
+      script: 'node',
+      args: 'dist/index.js',
       cwd: '/root/TelegramVoice/websocket-server',
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: 8080
       },
       error_file: '/root/TelegramVoice/logs/websocket-server-error.log',
       out_file: '/root/TelegramVoice/logs/websocket-server-out.log',
