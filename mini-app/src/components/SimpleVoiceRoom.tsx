@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Пользователь, Комната } from '@/types';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useMediaPermissions } from '@/hooks/useMediaPermissions';
+import { useVoiceAnalyzer } from '@/hooks/useVoiceAnalyzer';
 import { Mic, MicOff, PhoneOff, Users, Volume2, Radio } from 'lucide-react';
 import { ICEStatus } from './ICEStatus';
 import { MediaPermissionModal } from './MediaPermissionModal';
@@ -160,29 +161,11 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
     });
   }, []);
 
-  // Анализ аудио для индикации речи
-  useEffect(() => {
-    if (!локальный_поток) return;
-
-    const audio_context = new AudioContext();
-    const analyser = audio_context.createAnalyser();
-    const microphone = audio_context.createMediaStreamSource(локальный_поток);
-    const javascript_node = audio_context.createScriptProcessor(2048, 1, 1);
-
-    analyser.smoothingTimeConstant = 0.8;
-    analyser.fftSize = 1024;
-
-    microphone.connect(analyser);
-    analyser.connect(javascript_node);
-    javascript_node.connect(audio_context.destination);
-
-    javascript_node.onaudioprocess = () => {
-      const array = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(array);
-      
-      const average = array.reduce((a, b) => a + b) / array.length;
-      const говорит = микрофон_включен && average > 30;
-
+  // Современный анализ аудио для индикации речи (AudioWorklet)
+  useVoiceAnalyzer({
+    поток: локальный_поток,
+    микрофон_включен,
+    на_изменение_речи: (говорит: boolean) => {
       if (говорит && !говорящие_пользователи.has(текущий_пользователь.id)) {
         socket?.уведомить_о_речи?.(true, комната.id);
         setГоворящие_пользователи(prev => new Set(prev).add(текущий_пользователь.id));
@@ -194,15 +177,9 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
           return новые;
         });
       }
-    };
-
-    return () => {
-      javascript_node.disconnect();
-      microphone.disconnect();
-      analyser.disconnect();
-      audio_context.close();
-    };
-  }, [локальный_поток, микрофон_включен, socket, текущий_пользователь.id, комната.id]);
+    },
+    порог_речи: 30
+  });
 
   // Подписки на события WebSocket
   useEffect(() => {
