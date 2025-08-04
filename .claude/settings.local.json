@@ -52,7 +52,8 @@
       "Bash(bash:*)",
       "WebFetch(domain:hesovoice.online)",
       "Bash(./auto-deploy.sh)",
-      "Bash(expect:*)"
+      "Bash(expect:*)",
+      "mcp__postgresql-api-ssh-mcp-server__mcp_api_client"
     ],
     "deny": []
   }

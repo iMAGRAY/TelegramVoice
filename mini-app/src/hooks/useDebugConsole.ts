@@ -3,18 +3,24 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export const useDebugConsole = () => {
+  // Отключаем debug консоль в production
+  const isProductionMode = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_DISABLE_DEBUG === 'true';
   const [показать_отладку, setПоказать_отладку] = useState(false);
 
   const переключить_отладку = useCallback(() => {
-    setПоказать_отладку(prev => !prev);
-  }, []);
+    if (!isProductionMode) {
+      setПоказать_отладку(prev => !prev);
+    }
+  }, [isProductionMode]);
 
   const закрыть_отладку = useCallback(() => {
     setПоказать_отладку(false);
   }, []);
 
-  // Обработка горячих клавиш
+  // Обработка горячих клавиш (только в development)
   useEffect(() => {
+    if (isProductionMode) return;
+    
     const обработчик_клавиш = (event: KeyboardEvent) => {
       // F12 для переключения отладочной консоли
       if (event.key === 'F12') {
@@ -43,11 +49,13 @@ export const useDebugConsole = () => {
     return () => {
       document.removeEventListener('keydown', обработчик_клавиш);
     };
-  }, [показать_отладку, переключить_отладку, закрыть_отладку]);
+  }, [isProductionMode, показать_отладку, переключить_отладку, закрыть_отладку]);
 
-  // Telegram Mini App специфичные методы открытия
+  // Telegram Mini App специфичные методы открытия (только в development)
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+    if (isProductionMode || typeof window === 'undefined' || !window.Telegram?.WebApp) return;
+    
+    if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       
       // Добавляем кнопку в главное меню (если поддерживается)
@@ -103,10 +111,10 @@ export const useDebugConsole = () => {
           clearTimeout(таймер_сброса);
         };
       } catch (error) {
-        console.log('[DebugConsole] Не удалось настроить Telegram-специфичные обработчики:', error);
+        // Не выводим логи в production
       }
     }
-  }, [переключить_отладку]);
+  }, [isProductionMode, переключить_отладку]);
 
   return {
     показать_отладку,
