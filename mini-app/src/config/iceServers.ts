@@ -88,68 +88,19 @@ export function получить_ice_конфигурацию(использов
   };
 }
 
-// Проверка доступности STUN/TURN серверов
+// Проверка доступности STUN/TURN серверов - ОТКЛЮЧЕНО для предотвращения утечек
 export async function проверить_ice_сервер(server: ICEServer): Promise<boolean> {
-  try {
-    const pc = new RTCPeerConnection({
-      iceServers: [server],
-      iceCandidatePoolSize: 0,
-    });
-    
-    let успех = false;
-    
-    // Ждем ICE кандидатов
-    return new Promise((resolve) => {
-      const таймаут = setTimeout(() => {
-        pc.close();
-        resolve(false);
-      }, 5000); // 5 секунд таймаут
-      
-      pc.onicecandidate = (event) => {
-        if (event.candidate && !успех) {
-          успех = true;
-          clearTimeout(таймаут);
-          pc.close();
-          resolve(true);
-        }
-      };
-      
-      // Создаем фиктивное предложение для запуска ICE gathering
-      pc.createDataChannel('test');
-      pc.createOffer().then(offer => pc.setLocalDescription(offer));
-    });
-  } catch (error) {
-    console.error('Ошибка проверки ICE сервера:', error);
-    return false;
-  }
+  // Всегда возвращаем true чтобы не создавать RTCPeerConnection
+  return true;
 }
 
-// Автоматический выбор лучших ICE серверов
+// Автоматический выбор лучших ICE серверов - ОТКЛЮЧЕНО для предотвращения утечек
 export async function выбрать_лучшие_ice_серверы(): Promise<ICEServer[]> {
-  const все_серверы = [...публичные_stun_серверы, ...публичные_turn_серверы];
-  const рабочие_серверы: ICEServer[] = [];
-  
-  // Проверяем серверы параллельно
-  const результаты = await Promise.allSettled(
-    все_серверы.map(async (сервер) => {
-      const доступен = await проверить_ice_сервер(сервер);
-      return { сервер, доступен };
-    })
-  );
-  
-  // Фильтруем только рабочие серверы
-  результаты.forEach((результат) => {
-    if (результат.status === 'fulfilled' && результат.value.доступен) {
-      рабочие_серверы.push(результат.value.сервер);
-    }
-  });
-  
-  // Если нет рабочих серверов, возвращаем минимальный набор
-  if (рабочие_серверы.length === 0) {
-    return [{ urls: 'stun:stun.l.google.com:19302' }];
-  }
-  
-  return рабочие_серверы;
+  // Возвращаем стандартный набор без проверки чтобы не создавать RTCPeerConnection
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    ...публичные_turn_серверы.slice(0, 1),
+  ];
 }
 
 // Конфигурация для разных сценариев

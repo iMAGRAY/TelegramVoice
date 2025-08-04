@@ -46,10 +46,11 @@ export const useVoiceAnalyzer = ({
 
       // Загружаем AudioWorklet
       try {
-        await audio_context.audioWorklet.addModule('/audio-worklet-processor.js');
+        await audio_context.audioWorklet.addModule('./audio-worklet-processor.js');
       } catch (error) {
-        // Fallback на старый метод если AudioWorklet не поддерживается
-        setupLegacyAnalyzer(audio_context);
+        // Вместо fallback на ScriptProcessorNode, используем простой метод без анализа
+        console.log('AudioWorklet не поддерживается, анализ речи отключен');
+        cleanup();
         return;
       }
 
@@ -78,49 +79,13 @@ export const useVoiceAnalyzer = ({
       worklet_node.connect(audio_context.destination);
 
     } catch (error) {
-      // Попытка fallback если основной метод не сработал
-      if (audio_context_ref.current) {
-        setupLegacyAnalyzer(audio_context_ref.current);
-      }
+      // Вместо fallback, просто отключаем анализ речи
+      console.log('Ошибка настройки анализатора голоса, анализ речи отключен');
+      cleanup();
     }
   }, [поток, микрофон_включен, на_изменение_речи, порог_речи, cleanup]);
 
-  // Fallback на ScriptProcessorNode для старых браузеров
-  const setupLegacyAnalyzer = useCallback((audio_context: AudioContext) => {
-    if (!поток) return;
-
-    try {
-      const source = audio_context.createMediaStreamSource(поток);
-      const analyser = audio_context.createAnalyser();
-      const script_processor = audio_context.createScriptProcessor(2048, 1, 1);
-
-      analyser.smoothingTimeConstant = 0.8;
-      analyser.fftSize = 1024;
-
-      source.connect(analyser);
-      analyser.connect(script_processor);
-      script_processor.connect(audio_context.destination);
-
-      script_processor.onaudioprocess = () => {
-        const array = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(array);
-        
-        const average = array.reduce((a, b) => a + b) / array.length;
-        const новое_состояние_речи = микрофон_включен && average > порог_речи;
-
-        if (новое_состояние_речи !== говорит_ref.current) {
-          говорит_ref.current = новое_состояние_речи;
-          на_изменение_речи(новое_состояние_речи);
-        }
-      };
-
-      source_node_ref.current = source;
-      worklet_node_ref.current = script_processor as any; // Для совместимости с cleanup
-
-    } catch (error) {
-      // Ошибка настройки legacy анализатора
-    }
-  }, [поток, микрофон_включен, на_изменение_речи, порог_речи]);
+  // Legacy анализатор удален - используем только AudioWorklet
 
   // Настраиваем анализатор при изменении потока
   useEffect(() => {
