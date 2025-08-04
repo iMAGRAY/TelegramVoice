@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Убираем статический экспорт для корректной работы React хуков
+  // output: 'export', // ОТКЛЮЧЕНО - мешает инициализации  
   trailingSlash: true,
   images: {
     unoptimized: true,
