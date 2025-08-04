@@ -105,8 +105,10 @@ export const useTelegramWebApp = () => {
   const [готов, setГотов] = useState(false);
 
   useEffect(() => {
+    console.log(`[useTelegramWebApp] 🔄 Начинаем инициализацию Telegram WebApp...`);
     // Проверяем, запущено ли приложение в Telegram
     const isInTelegram = typeof window !== 'undefined' && window.Telegram?.WebApp;
+    console.log(`[useTelegramWebApp] 🔍 В Telegram:`, isInTelegram);
     
     if (isInTelegram) {
       const tg = window.Telegram.WebApp;
@@ -147,6 +149,7 @@ export const useTelegramWebApp = () => {
         setПользователь(tg.initDataUnsafe.user);
       }
       
+      console.log(`[useTelegramWebApp] ✅ Telegram WebApp инициализирован, устанавливаем готов=true`);
       setГотов(true);
       
       // Настройка темы
@@ -162,18 +165,21 @@ export const useTelegramWebApp = () => {
       }
     } else {
       // Fallback для случаев, когда приложение запущено не в Telegram
-      console.warn('[TelegramWebApp] Приложение запущено вне Telegram. Используем тестовый режим.');
+      console.warn('[useTelegramWebApp] ⚠️ Приложение запущено вне Telegram. Используем тестовый режим.');
       
       // Создаем тестового пользователя
-      setПользователь({
+      const testUser = {
         id: 123456789,
         first_name: 'Test',
         last_name: 'User',
         username: 'testuser',
-        language_code: 'ru',
-        allows_write_to_pm: true
-      });
+        language_code: 'ru'
+      } as ТелеграмПользователь;
       
+      console.log(`[useTelegramWebApp] 👤 Создан тестовый пользователь:`, testUser);
+      setПользователь(testUser);
+      
+      console.log(`[useTelegramWebApp] ✅ Тестовый режим инициализирован, устанавливаем готов=true`);  
       setГотов(true);
     }
   }, []);

@@ -58,7 +58,8 @@
       "Bash(start /B npm run dev)",
       "Bash(start /B cmd /c \"cd websocket-server && npm run dev\")",
       "Bash(powershell:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebFetch(domain:localhost)"
     ],
     "deny": []
   }
