@@ -18,16 +18,26 @@ export interface РезультатДиагностики {
 
 // Проверка задержки до STUN сервера
 async function измерить_задержку(url: string): Promise<number> {
+  let pc: RTCPeerConnection | null = null;
+  
   try {
     const start = performance.now();
     
     // Создаем временное соединение для измерения
-    const pc = new RTCPeerConnection({
+    pc = new RTCPeerConnection({
       iceServers: [{ urls: url }],
     });
     
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout')), 3000);
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout'));
+      }, 2000); // Уменьшил timeout до 2 сек
+      
+      if (!pc) {
+        clearTimeout(timeout);
+        reject(new Error('PeerConnection не создан'));
+        return;
+      }
       
       pc.onicecandidate = (event) => {
         if (event.candidate) {
@@ -36,19 +46,34 @@ async function измерить_задержку(url: string): Promise<number> {
         }
       };
       
+      pc.onicecandidateerror = () => {
+        clearTimeout(timeout);
+        reject(new Error('ICE candidate error'));
+      };
+      
       pc.createDataChannel('ping');
-      pc.createOffer().then(offer => pc.setLocalDescription(offer));
+      pc.createOffer()
+        .then(offer => pc?.setLocalDescription(offer))
+        .catch(reject);
     });
-    
-    pc.close();
     
     return performance.now() - start;
   } catch (error) {
+    console.error(`Ошибка проверки ICE сервера:`, error);
     return -1;
+  } finally {
+    // КРИТИЧНО: Всегда закрываем соединение
+    if (pc) {
+      try {
+        pc.close();
+      } catch (e) {
+        console.warn('Ошибка при закрытии PeerConnection:', e);
+      }
+    }
   }
 }
 
-// Диагностика всех ICE серверов
+// Диагностика всех ICE серверов (с ограничением на количество)
 export async function диагностировать_ice_серверы(): Promise<РезультатДиагностики> {
   const stun_результаты: ICEДиагностика[] = [];
   const turn_результаты: ICEДиагностика[] = [];
@@ -56,8 +81,8 @@ export async function диагностировать_ice_серверы(): Promi
   
   console.log('🔍 Начинаем диагностику ICE серверов...');
   
-  // Проверяем STUN серверы
-  for (const сервер of публичные_stun_серверы.slice(0, 5)) {
+  // КРИТИЧНО: Ограничиваем до 2 STUN серверов для предотвращения перегрузки
+  for (const сервер of публичные_stun_серверы.slice(0, 2)) {
     try {
       const start = performance.now();
       const доступен = await проверить_ice_сервер(сервер);
@@ -79,8 +104,8 @@ export async function диагностировать_ice_серверы(): Promi
     }
   }
   
-  // Проверяем TURN серверы
-  for (const сервер of публичные_turn_серверы) {
+  // КРИТИЧНО: Ограничиваем до 1 TURN сервера для предотвращения перегрузки  
+  for (const сервер of публичные_turn_серверы.slice(0, 1)) {
     try {
       const start = performance.now();
       const доступен = await проверить_ice_сервер(сервер);
