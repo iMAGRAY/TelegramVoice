@@ -13,11 +13,11 @@ check_status() {
     local warnings=0
     
     # Проверка PM2 процессов
-    if ! pm2 list | grep "rust-websocket" | grep -q "online"; then
+    if ! pm2 list | grep "websocket-server" | grep -q "online"; then
         ((errors++))
     fi
     
-    if ! pm2 list | grep "nextjs-static" | grep -q "online"; then
+    if ! pm2 list | grep "frontend" | grep -q "online"; then
         ((errors++))
     fi
     
@@ -84,7 +84,7 @@ $STATUS_ICON TELEGRAM VOICE DEPLOY REPORT
 📊 Статус: $OVERALL_STATUS
 
 🔧 СЕРВИСЫ:
-$(pm2 list | grep -E "(rust-websocket|nextjs-static)" | awk '{print "   "$2": "$10}')
+$(pm2 list | grep -E "(websocket-server|frontend)" | awk '{print "   "$2": "$10}')
 
 🌐 ПОРТЫ:
    • WebSocket (8080): $(netstat -tlnp | grep :8080 > /dev/null && echo "✅ Работает" || echo "❌ Не работает")

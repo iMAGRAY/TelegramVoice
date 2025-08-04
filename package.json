@@ -7,6 +7,6 @@
     "backup-ws": "node backup-ws-server.js"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.18.3"
   }
 }

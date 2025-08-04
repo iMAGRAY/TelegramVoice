@@ -49,10 +49,9 @@ log "Устанавливаем Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt install -y nodejs
 
-# Установка Rust
-log "Устанавливаем Rust..."
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
+# Установка PM2
+log "Устанавливаем PM2..."
+npm install -g pm2
 
 # Создание директории для проекта
 log "Создаем директорию для проекта..."
@@ -77,11 +76,11 @@ NEXT_PUBLIC_WEBSOCKET_URL=wss://${DOMAIN}/ws
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 EOF
 
-# Создание переменных окружения для Signaling Server
-log "Настраиваем переменные окружения для Signaling Server..."
-cat > /var/www/TelegramVoice/signaling-server/.env << EOF
-RUST_LOG=info
-WEBSOCKET_PORT=8080
+# Создание переменных окружения для WebSocket Server
+log "Настраиваем переменные окружения для WebSocket Server..."
+cat > /var/www/TelegramVoice/websocket-server/.env << EOF
+PORT=8080
+NODE_ENV=production
 EOF
 
 # Сборка Mini App
@@ -90,10 +89,11 @@ cd /var/www/TelegramVoice/mini-app
 npm install
 npm run build
 
-# Сборка Signaling Server
-log "Собираем Signaling Server..."
-cd /var/www/TelegramVoice/signaling-server
-/root/.cargo/bin/cargo build --release
+# Сборка WebSocket Server
+log "Собираем WebSocket Server..."
+cd /var/www/TelegramVoice/websocket-server
+npm install
+npm run build
 
 # Настройка Nginx
 log "Настраиваем Nginx..."
@@ -168,40 +168,49 @@ nginx -t && systemctl reload nginx
 log "Получаем SSL сертификат..."
 certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos -m admin@${DOMAIN}
 
-# Создание systemd сервиса для Signaling Server
-log "Создаем systemd сервис для Signaling Server..."
-cat > /etc/systemd/system/telegram-voice-signaling.service << EOF
-[Unit]
-Description=Telegram Voice Signaling Server
-After=network.target
+# Настройка PM2
+log "Настраиваем PM2..."
+cd /var/www/TelegramVoice
 
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/TelegramVoice/signaling-server
-Environment="RUST_LOG=info"
-Environment="RUST_BACKTRACE=1"
-ExecStart=/var/www/TelegramVoice/signaling-server/target/release/signaling-server
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
+# Создание ecosystem.config.js
+cat > ecosystem.config.js << 'EOF'
+module.exports = {
+  apps: [
+    {
+      name: 'websocket-server',
+      script: 'npm',
+      args: 'start',
+      cwd: '/var/www/TelegramVoice/websocket-server',
+      env: {
+        NODE_ENV: 'production'
+      }
+    },
+    {
+      name: 'frontend',
+      script: 'serve',
+      args: '-s out -l 3000',
+      cwd: '/var/www/TelegramVoice/mini-app',
+      env: {
+        NODE_ENV: 'production'
+      }
+    }
+  ]
+};
 EOF
+
+# Установка serve для фронтенда
+npm install -g serve
 
 # Установка прав доступа
 log "Устанавливаем права доступа..."
 chown -R www-data:www-data /var/www/TelegramVoice
-chmod +x /var/www/TelegramVoice/signaling-server/target/release/signaling-server
 
-# Запуск сервисов
-log "Запускаем сервисы..."
-systemctl daemon-reload
-systemctl enable telegram-voice-signaling
-systemctl restart telegram-voice-signaling
-systemctl status telegram-voice-signaling --no-pager
+# Запуск PM2
+log "Запускаем PM2 сервисы..."
+pm2 start ecosystem.config.js
+pm2 startup systemd -u root --hp /root
+pm2 save
+pm2 status
 
 # Настройка firewall
 log "Настраиваем firewall..."
@@ -227,12 +236,13 @@ cd mini-app
 npm install
 npm run build
 
-# Обновление Signaling Server
-cd ../signaling-server
-/root/.cargo/bin/cargo build --release
+# Обновление WebSocket Server
+cd ../websocket-server
+npm install
+npm run build
 
 # Перезапуск сервисов
-systemctl restart telegram-voice-signaling
+pm2 restart all
 systemctl reload nginx
 
 echo "✅ Обновление завершено!"
@@ -255,8 +265,8 @@ echo ""
 echo "🌐 Nginx:"
 systemctl status nginx --no-pager | grep "Active:"
 echo ""
-echo "🦀 Signaling Server:"
-systemctl status telegram-voice-signaling --no-pager | grep "Active:"
+echo "📡 WebSocket Server:"
+pm2 status | grep websocket-server
 echo ""
 echo "💾 Использование диска:"
 df -h | grep -E "^/dev/"
@@ -270,8 +280,8 @@ echo ""
 echo "🔌 Активные WebSocket подключения:"
 ss -tan | grep :8080 | grep ESTAB | wc -l
 echo ""
-echo "📝 Последние логи Signaling Server:"
-journalctl -u telegram-voice-signaling -n 10 --no-pager
+echo "📝 Последние логи WebSocket Server:"
+pm2 logs websocket-server --nostream --lines 10
 EOF
 
 chmod +x /var/www/TelegramVoice/monitor.sh
@@ -291,7 +301,7 @@ echo "==================="
 echo "📊 Мониторинг: /var/www/TelegramVoice/monitor.sh"
 echo "🔄 Обновление: /var/www/TelegramVoice/update.sh"
 echo "📝 Логи Nginx: tail -f /var/log/nginx/telegramvoice_*.log"
-echo "📝 Логи Signaling: journalctl -u telegram-voice-signaling -f"
+echo "📝 Логи WebSocket: pm2 logs websocket-server"
 echo ""
 echo "🚀 Telegram Bot настройка:"
 echo "========================="

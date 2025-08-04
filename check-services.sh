@@ -21,12 +21,11 @@ else
 fi
 
 echo
-if pm2 list | grep -q "signaling-server"; then
-    echo "--- Signaling Server logs ---"
-    pm2 logs signaling-server --lines 20 --nostream
+if pm2 list | grep -q "websocket-server"; then
+    echo "--- WebSocket Server logs ---"
+    pm2 logs websocket-server --lines 20 --nostream
 else
-    echo "--- Rust WebSocket logs (старое имя) ---"
-    pm2 logs rust-websocket --lines 20 --nostream 2>/dev/null || echo "Signaling server процесс не найден"
+    echo "WebSocket server процесс не найден"
 fi
 
 echo
@@ -49,7 +48,7 @@ fi
 
 echo
 echo "🔧 Системные процессы:"
-ps aux | grep -E "(node|cargo|signaling)" | grep -v grep
+ps aux | grep -E "(node|websocket)" | grep -v grep
 
 echo
 echo "🚀 Попытка перезапуска сервисов..."

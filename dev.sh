@@ -15,10 +15,10 @@ echo "📥 Установка зависимостей фронтенда..."
 cd mini-app
 npm install
 
-# Проверка Rust
-echo "🦀 Проверка Rust проекта..."
-cd ../signaling-server
-cargo check
+# Установка зависимостей WebSocket сервера
+echo "📡 Установка зависимостей WebSocket сервера..."
+cd ../websocket-server
+npm install
 
 # Возврат в корневую директорию
 cd ..
@@ -36,7 +36,7 @@ echo "✅ Готово к разработке!"
 echo ""
 echo "Для запуска сервисов используйте:"
 echo "  Frontend: cd mini-app && npm run dev"
-echo "  Backend:  cd signaling-server && cargo run"
+echo "  Backend:  cd websocket-server && npm run dev"
 echo ""
 echo "📝 Workflow разработки:"
 echo "  1. Разработка локально"

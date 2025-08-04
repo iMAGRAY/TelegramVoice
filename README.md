@@ -24,9 +24,11 @@ cp .env.example .env
 cd mini-app
 npm run dev
 
-# Backend  
-cd signaling-server
-cargo run
+# WebSocket сервер  
+cd websocket-server
+npm run dev
+# или для тестирования с виртуальными пользователями:
+npm test
 ```
 
 ## 🔧 Настройка окружения
@@ -70,14 +72,15 @@ NEXT_PUBLIC_WEBSOCKET_URL=ws://your_server:8080
 - **Telegram Web App SDK** - интеграция с Telegram
 - **React hooks** - управление состоянием
 
-### Backend (Rust WebSocket Server)  
+### Backend (Next.js WebSocket Server)  
 - **WebSocket сервер** - координация участников
 - **Сигналинг** - обмен WebRTC данными
 - **Управление комнатами** - создание, присоединение, выход
+- **TypeScript** - полная типобезопасность
 
 ## 🛠️ Технологии
 - **Frontend**: Next.js 15, TypeScript, Tailwind CSS, WebRTC
-- **Backend**: Rust, Tokio, WebSocket, Serde
+- **Backend**: Next.js, TypeScript, WebSocket (ws), Node.js
 - **DevOps**: GitHub Actions, PM2, Docker
 - **Telegram**: Web App SDK, Bot API
 

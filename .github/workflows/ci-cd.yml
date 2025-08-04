@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  # 1) Билд фронтенда и бэкенда + upload artifacts
+  # 1) Билд фронтенда и WebSocket сервера + upload artifacts
   build:
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: mini-app/package-lock.json
 
@@ -31,8 +31,8 @@ jobs:
       - name: Build and export frontend
         working-directory: mini-app
         run: |
-          npm run build          # должен делать `next build && next export`
-          # 결과 выходит в папку mini-app/out
+          npm run build
+          # Результат выходит в папку mini-app/out
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
@@ -40,36 +40,25 @@ jobs:
           name: frontend-static
           path: mini-app/out
 
-      # --- Backend build (Rust release binary) ---
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          profile: minimal
+      # --- WebSocket Server build ---
+      - name: Install WebSocket server dependencies
+        working-directory: websocket-server
+        run: npm ci
 
-      - name: Cache Rust crates
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            signaling-server/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+      - name: Build WebSocket server
+        working-directory: websocket-server
+        run: npm run build
 
-      - name: Build Rust backend (release)
-        working-directory: signaling-server
-        run: cargo build --release
-
-      - name: Upload backend artifact
+      - name: Upload WebSocket server artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-bin
-          path: signaling-server/target/release/
+          name: websocket-server
+          path: |
+            websocket-server/dist
+            websocket-server/package.json
+            websocket-server/package-lock.json
 
-  # 2) Деплой артефактов на сервер (без сборки на месте)
+  # 2) Деплой артефактов на сервер
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -82,11 +71,11 @@ jobs:
           name: frontend-static
           path: frontend-out
 
-      - name: Download backend artifact
+      - name: Download WebSocket server artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-bin
-          path: backend-bin
+          name: websocket-server
+          path: websocket-server
 
       - name: Copy frontend to server
         uses: appleboy/scp-action@v0.1.7
@@ -99,15 +88,15 @@ jobs:
           target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app/out/"
           strip_components: 1
 
-      - name: Copy backend to server  
+      - name: Copy WebSocket server to server  
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "backend-bin/signaling-server"
-          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/signaling-server/"
+          source: "websocket-server/*"
+          target: "${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server/"
           strip_components: 1
 
       - name: Deploy to server
@@ -121,18 +110,13 @@ jobs:
             # Остановим старые процессы
             pm2 stop all || true
 
-            # Устанавливаем права выполнения для бэкенда
-            chmod +x ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/signaling-server/signaling-server
+            # Устанавливаем зависимости WebSocket сервера
+            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/websocket-server
+            npm ci --only=production
 
-            # Запускаем фронтенд через serve и pm2
-            npm install -g serve || npm install -g serve --force
-            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/mini-app
-            pm2 start serve --name frontend -- -s out -p 3000
-
-            # Запускаем бэкенд через pm2
-            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}/signaling-server
-            pm2 start ./signaling-server --name signaling-server
-
+            # Запускаем через PM2
+            cd ${{ secrets.SERVER_PROJECT_PATH || '/root/TelegramVoice' }}
+            pm2 start ecosystem.config.js
             pm2 save
 
       - name: Post-deploy monitoring

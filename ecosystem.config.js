@@ -1,15 +1,16 @@
 module.exports = {
   apps: [
     {
-      name: 'signaling-server',
-      script: '/root/TelegramVoice/signaling-server/target/release/signaling-server',
-      cwd: '/root/TelegramVoice/signaling-server',
+      name: 'websocket-server',
+      script: 'npm',
+      args: 'start',
+      cwd: '/root/TelegramVoice/websocket-server',
       env: {
-        RUST_LOG: 'info'
+        NODE_ENV: 'production'
       },
-      error_file: '/root/TelegramVoice/logs/signaling-server-error.log',
-      out_file: '/root/TelegramVoice/logs/signaling-server-out.log',
-      log_file: '/root/TelegramVoice/logs/signaling-server-combined.log',
+      error_file: '/root/TelegramVoice/logs/websocket-server-error.log',
+      out_file: '/root/TelegramVoice/logs/websocket-server-out.log',
+      log_file: '/root/TelegramVoice/logs/websocket-server-combined.log',
       time: true,
       instances: 1,
       autorestart: true,

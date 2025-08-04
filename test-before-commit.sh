@@ -22,13 +22,12 @@ done
 echo
 echo "2️⃣ Проверка наличия файлов..."
 REQUIRED_FILES=(
-    "ultimate-ws-fix.sh"
-    "emergency-fix.sh"
-    "backup-ws-server.js"
-    "simple-ws-start.sh"
-    "setup-systemd.sh"
-    "diagnose-websocket.sh"
-    "quick-debug.sh"
+    "websocket-server/package.json"
+    "mini-app/package.json"
+    "ecosystem.config.js"
+    "deploy.sh"
+    "dev.sh"
+    "monitor.sh"
     ".github/workflows/simple-deploy.yml"
 )
 
@@ -63,14 +62,14 @@ else
 fi
 cd ..
 
-# 5. Проверка сборки Rust
+# 5. Проверка сборки WebSocket сервера
 echo
-echo "5️⃣ Проверка сборки Rust сервера..."
-cd signaling-server
-if cargo check; then
-    echo "✅ Rust код валиден"
+echo "5️⃣ Проверка сборки WebSocket сервера..."
+cd websocket-server
+if npm run build; then
+    echo "✅ WebSocket сервер собирается успешно"
 else
-    echo "❌ Ошибка в Rust коде"
+    echo "❌ Ошибка сборки WebSocket сервера"
     exit 1
 fi
 cd ..
@@ -85,5 +84,5 @@ echo "✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ!"
 echo
 echo "Теперь можно коммитить:"
 echo "  git add ."
-echo "  git commit -m 'Fix: Ultimate WebSocket server startup solution'"
+echo "  git commit -m 'описание изменений'"
 echo "  git push origin main"

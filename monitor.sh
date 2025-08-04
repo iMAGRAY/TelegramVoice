@@ -27,16 +27,16 @@ if pm2 list | grep -q "online"; then
     pm2 status
     
     # Проверка конкретных процессов
-    if pm2 list | grep "rust-websocket" | grep -q "online"; then
-        print_status "Rust WebSocket сервер" "OK"
+    if pm2 list | grep "websocket-server" | grep -q "online"; then
+        print_status "WebSocket сервер" "OK"
     else
-        print_status "Rust WebSocket сервер" "ERROR"
+        print_status "WebSocket сервер" "ERROR"
     fi
     
-    if pm2 list | grep "nextjs-static" | grep -q "online"; then
-        print_status "Next.js статик сервер" "OK"
+    if pm2 list | grep "frontend" | grep -q "online"; then
+        print_status "Frontend сервер" "OK"
     else
-        print_status "Next.js статик сервер" "ERROR"
+        print_status "Frontend сервер" "ERROR"
     fi
 else
     print_status "PM2 процессы" "ERROR"
@@ -129,7 +129,7 @@ echo ""
 
 # 6. Проверка uptime процессов
 echo "⏱️  Время работы процессов:"
-pm2 list | grep -E "(rust-websocket|nextjs-static)" | while read line; do
+pm2 list | grep -E "(websocket-server|frontend)" | while read line; do
     PROCESS_NAME=$(echo "$line" | awk '{print $2}')
     UPTIME=$(echo "$line" | awk '{print $6}')
     echo "   └─ $PROCESS_NAME: $UPTIME"
@@ -163,11 +163,11 @@ ERRORS=0
 WARNINGS=0
 
 # Проверяем основные компоненты
-if ! pm2 list | grep "rust-websocket" | grep -q "online"; then
+if ! pm2 list | grep "websocket-server" | grep -q "online"; then
     ((ERRORS++))
 fi
 
-if ! pm2 list | grep "nextjs-static" | grep -q "online"; then
+if ! pm2 list | grep "frontend" | grep -q "online"; then
     ((ERRORS++))
 fi
 

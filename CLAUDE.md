@@ -5,7 +5,7 @@
 
 ## Структура проекта
 - `mini-app/` - фронтенд Next.js приложение (Telegram Mini App)
-- `signaling-server/` - WebSocket сервер на Rust для сигналинга WebRTC
+- `websocket-server/` - WebSocket сервер на Next.js + TypeScript для сигналинга WebRTC
 - `src/` - старый Telegram бот (можно удалить)
 
 ## Архитектура
@@ -15,10 +15,11 @@
 - **Telegram Web App SDK** - интеграция с Telegram
 - **React hooks** - управление состоянием и WebRTC соединениями
 
-### Backend (Rust WebSocket Server)
+### Backend (Next.js WebSocket Server)
 - **WebSocket сервер** - координация участников и комнат
 - **Сигналинг** - обмен WebRTC offer/answer/ICE кандидатами
 - **Управление комнатами** - создание, присоединение, выход
+- **TypeScript** - полная типобезопасность
 
 ## Команды для разработки
 
@@ -31,12 +32,14 @@ npm run build  # Сборка для продакшена
 npm run start  # Запуск продакшен версии
 ```
 
-### Signaling Server (Backend)
+### WebSocket Server (Backend)
 ```bash
-cd signaling-server
-cargo run      # Запуск WebSocket сервера на порту 8080
-cargo build    # Сборка
-cargo check    # Проверка типов
+cd websocket-server
+npm install
+npm run dev    # Запуск в режиме разработки
+npm run build  # Сборка для продакшена
+npm start      # Запуск продакшен версии на порту 8080
+npm test       # Запуск с автоматическими тестами
 ```
 
 ## Переменные окружения
@@ -61,8 +64,8 @@ cargo check    # Проверка типов
 4. Настроить Web App в боте
 
 ## Технологии
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, WebRTC, Socket.IO
-- **Backend**: Rust, Tokio, WebSocket, Serde
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, WebRTC
+- **Backend**: Next.js, TypeScript, WebSocket (ws), Node.js
 - **Telegram**: Web App SDK, Bot API
 
 ## Workflow разработки и развертывания
@@ -73,7 +76,7 @@ cargo check    # Проверка типов
 1. **Локальная разработка**
    - Все изменения делаются в локальной среде
    - Тестирование функций локально
-   - Проверка сборки: `npm run build` и `cargo build`
+   - Проверка сборки: `npm run build` в обеих папках
 
 2. **Git коммит и push**
    - `git add .`
@@ -100,7 +103,7 @@ cd /root/TelegramVoice
 # Или ручное развертывание:
 git pull origin main
 cd mini-app && npm install && npm run build
-cd ../signaling-server && cargo build --release
+cd ../websocket-server && npm install && npm run build
 pm2 restart ecosystem.config.js
 ```
 

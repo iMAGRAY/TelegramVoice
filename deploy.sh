@@ -27,10 +27,11 @@ cd mini-app
 npm install
 npm run build
 
-# 3. Сборка backend на Rust
-echo "⚙️  Сборка backend..."
-cd ../signaling-server
-cargo build --release
+# 3. Сборка WebSocket сервера
+echo "⚙️  Сборка WebSocket сервера..."
+cd ../websocket-server
+npm install
+npm run build
 
 # 4. Создание директорий для логов
 echo "📁 Создание директорий..."
