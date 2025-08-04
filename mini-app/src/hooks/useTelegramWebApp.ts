@@ -184,6 +184,28 @@ export const useTelegramWebApp = () => {
     }
   }, []);
 
+  // АВАРИЙНЫЙ таймер для принудительной инициализации
+  useEffect(() => {
+    const emergencyTimer = setTimeout(() => {
+      if (!готов) {
+        console.warn(`[useTelegramWebApp] 🚨 АВАРИЙНАЯ ИНИЦИАЛИЗАЦИЯ - Telegram WebApp не готов за 3 секунды!`);
+        
+        // Создаём аварийного пользователя
+        const emergencyUser = {
+          id: Date.now(),
+          first_name: 'Аварийный',
+          last_name: 'Пользователь',
+          username: 'emergency_user'
+        } as ТелеграмПользователь;
+        
+        setПользователь(emergencyUser);
+        setГотов(true);
+      }
+    }, 3000); // 3 секунды
+
+    return () => clearTimeout(emergencyTimer);
+  }, [готов]);
+
   const показатьУведомление = (сообщение: string) => {
     if (webApp && проверить_поддержку_метода('showAlert', webApp)) {
       try {
