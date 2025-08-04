@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-time WebSocket Debug</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .panel { flex: 1; border: 1px solid #ddd; border-radius: 5px; padding: 15px; }
+        .log { background: #f5f5f5; padding: 10px; height: 400px; overflow-y: auto; font-family: monospace; font-size: 11px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 8px 12px; cursor: pointer; }
+        input { padding: 5px; margin: 5px; }
+        .user-panel { background: #f9f9f9; }
+        .status { font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔊 Голосовые комнаты - Отладка в реальном времени</h1>
+    
+    <div class="container">
+        <!-- Пользователь 1 -->
+        <div class="panel user-panel">
+            <h3>👤 Пользователь 1</h3>
+            <div class="status" id="status1">Отключен</div>
+            <input type="text" id="username1" placeholder="Имя пользователя" value="Тестер-1">
+            <button onclick="connectUser(1)">Подключиться</button>
+            <button onclick="disconnectUser(1)">Отключиться</button>
+            <br>
+            <button onclick="joinRoom(1, 'general')">Присоединиться к "Общий"</button>
+            <button onclick="leaveRoom(1)">Покинуть комнату</button>
+            <div class="log" id="log1"></div>
+        </div>
+        
+        <!-- Пользователь 2 -->
+        <div class="panel user-panel">
+            <h3>👤 Пользователь 2</h3>
+            <div class="status" id="status2">Отключен</div>
+            <input type="text" id="username2" placeholder="Имя пользователя" value="Тестер-2">
+            <button onclick="connectUser(2)">Подключиться</button>
+            <button onclick="disconnectUser(2)">Отключиться</button>
+            <br>
+            <button onclick="joinRoom(2, 'general')">Присоединиться к "Общий"</button>
+            <button onclick="leaveRoom(2)">Покинуть комнату</button>
+            <div class="log" id="log2"></div>
+        </div>
+    </div>
+    
+    <div class="panel" style="margin-top: 20px;">
+        <h3>🔧 Общая диагностика</h3>
+        <button onclick="testSequence()">🚀 Автоматический тест последовательности</button>
+        <button onclick="clearLogs()">🧹 Очистить логи</button>
+        <div class="log" id="generalLog"></div>
+    </div>
+
+    <script>
+        const wsUrl = 'ws://89.23.115.156:8080';
+        const users = {
+            1: { ws: null, id: null, room: null },
+            2: { ws: null, id: null, room: null }
+        };
+
+        function log(user, message, type = 'info') {
+            const logElement = document.getElementById(`log${user}`);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logElement.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            // Дублируем в общий лог
+            const generalLog = document.getElementById('generalLog');
+            generalLog.innerHTML += `<div class="${className}">[${timestamp}] User${user}: ${message}</div>`;
+            generalLog.scrollTop = generalLog.scrollHeight;
+        }
+
+        function updateStatus(user, status, color = '#333') {
+            const statusElement = document.getElementById(`status${user}`);
+            statusElement.textContent = status;
+            statusElement.style.color = color;
+        }
+
+        function connectUser(user) {
+            if (users[user].ws) {
+                log(user, '❌ Уже подключен', 'error');
+                return;
+            }
+
+            const username = document.getElementById(`username${user}`).value || `User-${user}`;
+            users[user].id = `user-${user}-${Date.now()}`;
+            
+            log(user, `🔄 Подключение к ${wsUrl}...`);
+            updateStatus(user, 'Подключение...', 'orange');
+            
+            const ws = new WebSocket(wsUrl);
+            users[user].ws = ws;
+
+            ws.onopen = () => {
+                log(user, '✅ WebSocket подключен', 'success');
+                updateStatus(user, 'Подключен', 'green');
+                
+                // Отправляем сообщение о присоединении
+                const joinMessage = {
+                    тип: 'присоединиться',
+                    пользователь: {
+                        id: users[user].id,
+                        имя: username,
+                        аватар: '👤',
+                        подключен: true,
+                        микрофон_включен: false,
+                        говорит: false
+                    }
+                };
+                
+                ws.send(JSON.stringify(joinMessage));
+                log(user, `📤 Отправлено: присоединиться (${users[user].id})`);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(user, `📥 Получено: ${data.тип}`, 'info');
+                    
+                    if (data.тип === 'ошибка') {
+                        log(user, `❌ ОШИБКА СЕРВЕРА: ${data.сообщение}`, 'error');
+                        log(user, `🔍 Полный ответ: ${JSON.stringify(data)}`, 'error');
+                    } else if (data.тип === 'участники-комнаты-обновлены') {
+                        log(user, `👥 Участники комнаты ${data.комната_id}: [${data.участники.map(u => u.имя).join(', ')}]`, 'success');
+                    } else if (data.тип === 'комнаты-обновлены') {
+                        log(user, `🏠 Доступные комнаты: [${data.комнаты.map(r => r.название).join(', ')}]`);
+                    } else if (data.тип === 'присоединился-к-комнате') {
+                        users[user].room = data.комната.id;
+                        log(user, `🎉 Присоединился к комнате "${data.комната.название}"`, 'success');
+                    } else {
+                        log(user, `🔍 Полное сообщение: ${JSON.stringify(data)}`, 'info');
+                    }
+                } catch (e) {
+                    log(user, `❌ Ошибка парсинга: ${event.data}`, 'error');
+                }
+            };
+
+            ws.onclose = (event) => {
+                log(user, `🔌 Соединение закрыто: ${event.code} - ${event.reason}`, 'error');
+                updateStatus(user, 'Отключен', 'red');
+                users[user].ws = null;
+                users[user].room = null;
+            };
+
+            ws.onerror = (error) => {
+                log(user, `❌ Ошибка WebSocket: ${error}`, 'error');
+                updateStatus(user, 'Ошибка', 'red');
+            };
+        }
+
+        function disconnectUser(user) {
+            if (users[user].ws) {
+                users[user].ws.close();
+                users[user].ws = null;
+                users[user].room = null;
+                log(user, '👋 Отключен вручную');
+                updateStatus(user, 'Отключен', 'red');
+            }
+        }
+
+        function joinRoom(user, roomId) {
+            if (!users[user].ws || users[user].ws.readyState !== WebSocket.OPEN) {
+                log(user, '❌ Не подключен к WebSocket', 'error');
+                return;
+            }
+
+            const message = {
+                тип: 'присоединиться-к-комнате',
+                комната_id: roomId,
+                пользователь_id: users[user].id
+            };
+
+            users[user].ws.send(JSON.stringify(message));
+            log(user, `📤 Присоединение к комнате "${roomId}"`);
+        }
+
+        function leaveRoom(user) {
+            if (!users[user].room) {
+                log(user, '❌ Не в комнате', 'error');
+                return;
+            }
+
+            const message = {
+                тип: 'покинуть-комнату',
+                комната_id: users[user].room,
+                пользователь_id: users[user].id
+            };
+
+            users[user].ws.send(JSON.stringify(message));
+            log(user, `📤 Покидание комнаты`);
+            users[user].room = null;
+        }
+
+        function clearLogs() {
+            document.getElementById('log1').innerHTML = '';
+            document.getElementById('log2').innerHTML = '';
+            document.getElementById('generalLog').innerHTML = '';
+        }
+
+        async function testSequence() {
+            clearLogs();
+            log(1, '🚀 НАЧАЛО АВТОМАТИЧЕСКОГО ТЕСТА', 'success');
+            log(2, '🚀 НАЧАЛО АВТОМАТИЧЕСКОГО ТЕСТА', 'success');
+            
+            // Подключаем пользователя 1
+            connectUser(1);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Подключаем пользователя 2
+            connectUser(2);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Присоединяем к комнате
+            joinRoom(1, 'general');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            joinRoom(2, 'general');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            log(1, '🏁 ТЕСТ ЗАВЕРШЕН - проверьте результаты', 'success');
+            log(2, '🏁 ТЕСТ ЗАВЕРШЕН - проверьте результаты', 'success');
+        }
+    </script>
+</body>
+</html>
