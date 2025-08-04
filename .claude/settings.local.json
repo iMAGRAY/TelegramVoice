@@ -56,7 +56,8 @@
       "mcp__postgresql-api-ssh-mcp-server__mcp_api_client",
       "Bash(start /B cmd /c \"cd mini-app && npm run dev\")",
       "Bash(start /B npm run dev)",
-      "Bash(start /B cmd /c \"cd websocket-server && npm run dev\")"
+      "Bash(start /B cmd /c \"cd websocket-server && npm run dev\")",
+      "Bash(powershell:*)"
     ],
     "deny": []
   }

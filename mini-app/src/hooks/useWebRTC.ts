@@ -108,6 +108,13 @@ export const useWebRTC = ({
         return null;
       }
       
+      // КРИТИЧНО: Проверяем что локальный поток активен
+      const локальные_треки = локальный_поток_ref.current.getAudioTracks();
+      console.log(`[WebRTC] Создание peer с ${локальные_треки.length} аудио треками`);
+      локальные_треки.forEach((трек, индекс) => {
+        console.log(`[WebRTC] Локальный трек ${индекс}: enabled=${трек.enabled}, muted=${трек.muted}, readyState=${трек.readyState}`);
+      });
+      
       const peer = new SimplePeer({
         initiator: инициатор,
         trickle: true, // КРИТИЧНО: включаем trickle ICE для быстрого соединения
@@ -145,9 +152,19 @@ export const useWebRTC = ({
           треки: удаленный_поток.getTracks().map(t => ({ 
             вид: t.kind, 
             включен: t.enabled,
-            id: t.id
+            id: t.id,
+            muted: t.muted,
+            readyState: t.readyState
           }))
         });
+        
+        // КРИТИЧНО: Проверяем наличие аудио треков
+        const аудио_треки = удаленный_поток.getAudioTracks();
+        if (аудио_треки.length === 0) {
+          console.error(`[WebRTC] ⚠️ ВНИМАНИЕ: Получен поток без аудио треков от ${удаленный_пользователь_id}`);
+        } else {
+          console.log(`[WebRTC] ✅ Аудио треки получены: ${аудио_треки.length} шт.`);
+        }
         
         подключение.поток = удаленный_поток;
         подключение.подключен = true;
