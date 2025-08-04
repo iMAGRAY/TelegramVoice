@@ -66,13 +66,52 @@ export const useVoiceAnalyzer = ({
       
       // Создаем AudioContext только если его нет
       if (!audio_context_ref.current) {
-        const audio_context = new AudioContext();
-        audio_context_ref.current = audio_context;
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) {
+          console.warn('[VoiceAnalyzer] AudioContext не поддерживается, переходим к fallback');
+          setupAnalyserFallback(null as any);
+          return;
+        }
+        
+        try {
+          const audio_context = new AudioContext();
+          audio_context_ref.current = audio_context;
+          
+          // Обработчик изменения состояния контекста
+          audio_context.addEventListener('statechange', () => {
+            console.log(`[VoiceAnalyzer] AudioContext состояние изменилось: ${audio_context.state}`);
+            
+            if (audio_context.state === 'suspended') {
+              console.log('[VoiceAnalyzer] AudioContext приостановлен, попытка возобновления...');
+              audio_context.resume().catch(error => {
+                console.error('[VoiceAnalyzer] Не удалось возобновить AudioContext:', error);
+              });
+            }
+          });
+          
+        } catch (error) {
+          console.error('[VoiceAnalyzer] Ошибка создания AudioContext:', error);
+          setupAnalyserFallback(null as any);
+          return;
+        }
       }
       
       // Проверяем что контекст не закрыт
       if (audio_context_ref.current.state === 'closed') {
+        console.warn('[VoiceAnalyzer] AudioContext закрыт, не можем анализировать аудио');
         return;
+      }
+      
+      // Попытка возобновить приостановленный контекст
+      if (audio_context_ref.current.state === 'suspended') {
+        console.log('[VoiceAnalyzer] AudioContext приостановлен, попытка возобновления...');
+        try {
+          await audio_context_ref.current.resume();
+          console.log('[VoiceAnalyzer] AudioContext успешно возобновлен');
+        } catch (error) {
+          console.error('[VoiceAnalyzer] Не удалось возобновить AudioContext:', error);
+          return;
+        }
       }
 
       // Загружаем AudioWorklet
@@ -104,9 +143,9 @@ export const useVoiceAnalyzer = ({
         }
       };
 
-      // Подключаем узлы
+      // Подключаем узлы - ИСПРАВЛЕНИЕ: НЕ подключаем к destination чтобы избежать петли обратной связи
       source.connect(worklet_node);
-      worklet_node.connect(audio_context_ref.current.destination);
+      // worklet_node НЕ подключаем к destination - только анализируем аудио без воспроизведения
 
     } catch (error) {
       // Fallback на простой AnalyserNode если не удалось создать AudioWorklet
@@ -117,13 +156,39 @@ export const useVoiceAnalyzer = ({
   }, [поток, микрофон_включен, на_изменение_речи, порог_речи, cleanup]);
 
   // Современный fallback с AnalyserNode и requestAnimationFrame
-  const setupAnalyserFallback = useCallback((audio_context: AudioContext) => {
+  const setupAnalyserFallback = useCallback((audio_context: AudioContext | null) => {
     if (!поток) return;
 
     try {
+      // Если контекст null, создаем новый для fallback
+      if (!audio_context) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) {
+          console.warn('[VoiceAnalyzer] Fallback: AudioContext не поддерживается совсем');
+          return;
+        }
+        
+        try {
+          audio_context = new AudioContext();
+          audio_context_ref.current = audio_context;
+        } catch (error) {
+          console.error('[VoiceAnalyzer] Fallback: Не удалось создать AudioContext:', error);
+          return;
+        }
+      }
+      
       // Проверяем что контекст не закрыт
       if (audio_context.state === 'closed') {
+        console.warn('[VoiceAnalyzer] Fallback: AudioContext закрыт');
         return;
+      }
+      
+      // Попытка возобновить приостановленный контекст
+      if (audio_context.state === 'suspended') {
+        console.log('[VoiceAnalyzer] Fallback: AudioContext приостановлен, попытка возобновления...');
+        audio_context.resume().catch(error => {
+          console.error('[VoiceAnalyzer] Fallback: Не удалось возобновить AudioContext:', error);
+        });
       }
       
       const source = audio_context.createMediaStreamSource(поток);
