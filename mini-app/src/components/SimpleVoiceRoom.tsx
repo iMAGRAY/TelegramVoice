@@ -8,6 +8,7 @@ import { useVoiceAnalyzer } from '@/hooks/useVoiceAnalyzer';
 import { Mic, MicOff, PhoneOff, Users, Volume2, Radio, AlertTriangle } from 'lucide-react';
 import { ICEStatus } from './ICEStatus';
 import { MediaPermissionModal } from './MediaPermissionModal';
+import { MicrophoneError } from './MicrophoneError';
 import { checkWebRTCCapabilities, getBrowserInfo, getRecommendedSettings } from '@/utils/webrtcCompat';
 
 interface VoiceRoomProps {
@@ -80,20 +81,11 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
 
   // ИСПРАВЛЕНИЕ: Простое подключение БЕЗ бесконечных циклов
   const безопасно_подключиться_к_пользователю = useCallback((пользователь_id: string) => {
-    console.log(`[SimpleVoiceRoom] 🔍 ДИАГНОСТИКА подключения к ${пользователь_id}:`, {
-      есть_локальный_поток: !!локальный_поток,
-      треки_в_потоке: локальный_поток?.getTracks().length || 0,
-      треки_детали: локальный_поток?.getTracks().map(t => ({
-        вид: t.kind,
-        включен: t.enabled,
-        готовность: t.readyState,
-        id: t.id
-      })),
-      состояние_потока: локальный_поток?.active
-    });
+    // Проверяем наличие локального потока перед подключением
+    console.log(`[SimpleVoiceRoom] ❔ Подключение к ${пользователь_id}: микрофон ${локальный_поток ? 'есть' : 'ОТСУТСТВУЕТ'}`);
     
     if (!локальный_поток) {
-      console.warn(`[SimpleVoiceRoom] ⚠️ ПРОПУСКАЕМ подключение к ${пользователь_id} - нет локального потока`);
+      console.error(`[SimpleVoiceRoom] ❌ ОТКЛОНЕНО подключение к ${пользователь_id} - микрофон не получен`);
       return;
     }
     
@@ -119,8 +111,6 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
             активен: поток?.active,
             id: поток?.id
           });
-          // ИСПРАВЛЕНИЕ: НЕ ВЫЗЫВАЕМ АВТОМАТИЧЕСКУЮ СИНХРОНИЗАЦИЮ
-          console.log('[SimpleVoiceRoom] ✅ Микрофон готов к использованию');
         }).catch(error => {
           console.error('[SimpleVoiceRoom] ❌ Ошибка получения микрофона:', error);
         });
@@ -150,8 +140,6 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
           активен: поток?.active,
           id: поток?.id
         });
-        // ИСПРАВЛЕНИЕ: НЕ ВЫЗЫВАЕМ АВТОМАТИЧЕСКУЮ СИНХРОНИЗАЦИЮ
-        console.log('[SimpleVoiceRoom] ✅ Микрофон готов к использованию');
       }).catch(error => {
         console.error('[SimpleVoiceRoom] ❌ Ошибка получения микрофона в обработчике разрешения:', error);
       });
@@ -639,7 +627,7 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
       аудио_refs.current.clear();
       console.log(`[SimpleVoiceRoom] ✅ Размонтирование SimpleVoiceRoom завершено`);
     };
-  }, [webrtc_диагностика.совместимость_проверена, webrtc_диагностика.поддерживается]); // Зависит от проверки совместимости
+  }, [webrtc_диагностика.совместимость_проверена, webrtc_диагностика.поддерживается, локальный_поток, разрешения_проверены, получить_микрофон, очистить]); // Однократная инициализация микрофона
   
   // ИСПРАВЛЕНИЕ: Отдельный эффект для запроса участников ПОСЛЕ получения микрофона
   useEffect(() => {
@@ -687,26 +675,17 @@ export const SimpleVoiceRoom: React.FC<VoiceRoomProps> = ({
 
   if (ошибка) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="text-[var(--danger)] mb-4 text-lg font-semibold">Ошибка подключения</div>
-          <div className="text-sm text-[var(--text-secondary)] mb-6">{ошибка}</div>
-          <div className="space-y-3">
-            <button
-              onClick={() => setПоказать_разрешения(true)}
-              className="w-full px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Проверить разрешения микрофона
-            </button>
-            <button
-              onClick={на_покинуть_комнату}
-              className="w-full px-4 py-2 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              Вернуться назад
-            </button>
-          </div>
-        </div>
-      </div>
+      <MicrophoneError
+        ошибка={ошибка}
+        на_повторить={() => {
+          setОшибка(null);
+          получить_микрофон().catch(error => {
+            console.error('[SimpleVoiceRoom] Повторная ошибка микрофона:', error);
+          });
+        }}
+        на_показать_разрешения={() => setПоказать_разрешения(true)}
+        на_покинуть={на_покинуть_комнату}
+      />
     );
   }
 
