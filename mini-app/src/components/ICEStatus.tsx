@@ -6,9 +6,11 @@ import { диагностировать_ice_серверы, определить
 
 interface ICEStatusProps {
   показать_подробности?: boolean;
+  websocket_подключен?: boolean;
+  socket?: any;
 }
 
-export const ICEStatus: React.FC<ICEStatusProps> = ({ показать_подробности = false }) => {
+export const ICEStatus: React.FC<ICEStatusProps> = ({ показать_подробности = false, websocket_подключен = false, socket }) => {
   const [состояние, setСостояние] = useState<'проверка' | 'отлично' | 'хорошо' | 'плохо'>('проверка');
   const [тип_nat, setТип_nat] = useState<string>('');
   const [рекомендации, setРекомендации] = useState<string[]>([]);
@@ -58,6 +60,11 @@ export const ICEStatus: React.FC<ICEStatusProps> = ({ показать_подр�
 
 
   const получить_иконку = () => {
+    // ИСПРАВЛЕНИЕ: Сначала проверяем WebSocket соединение
+    if (!websocket_подключен && socket) {
+      return <WifiOff className="w-4 h-4 text-[var(--danger)]" />;
+    }
+    
     switch (состояние) {
       case 'отлично':
         return <CheckCircle className="w-4 h-4 text-[var(--success)]" />;
@@ -71,15 +78,20 @@ export const ICEStatus: React.FC<ICEStatusProps> = ({ показать_подр�
   };
 
   const получить_текст_состояния = () => {
+    // ИСПРАВЛЕНИЕ: Сначала проверяем WebSocket соединение
+    if (!websocket_подключен && socket) {
+      return 'WebSocket отключен';
+    }
+    
     switch (состояние) {
       case 'отлично':
-        return 'Отличное соединение';
+        return websocket_подключен ? 'Отличное соединение' : 'ICE в норме, WebSocket отключен';
       case 'хорошо':
-        return 'Хорошее соединение';
+        return websocket_подключен ? 'Хорошее соединение' : 'ICE в норме, WebSocket отключен';
       case 'плохо':
-        return 'Проблемы с соединением';
+        return websocket_подключен ? 'Проблемы с соединением' : 'Проблемы с ICE и WebSocket';
       default:
-        return 'Проверка соединения...';
+        return websocket_подключен ? 'Проверка соединения...' : 'Подключение к серверу...';
     }
   };
 
@@ -116,6 +128,17 @@ export const ICEStatus: React.FC<ICEStatusProps> = ({ показать_подр�
 
       {развернуто && (
         <div className="mt-3 space-y-2">
+          {/* Информация о WebSocket */}
+          {socket && (
+            <div className="text-xs text-[var(--text-secondary)]">
+              <span className="font-medium">WebSocket:</span> {
+                websocket_подключен ? 
+                '✅ Подключен' : 
+                '❌ Отключен'
+              }
+            </div>
+          )}
+          
           {тип_nat && (
             <div className="text-xs text-[var(--text-secondary)]">
               <span className="font-medium">Тип NAT:</span> {тип_nat}
