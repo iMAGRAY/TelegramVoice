@@ -28,5 +28,15 @@
     "encrypted": true,
     "created_at": "2025-08-04T21:37:40.108Z",
     "updated_at": "2025-08-04T21:37:40.108Z"
+  },
+  "production_server": {
+    "host": "89.23.115.156",
+    "port": 22,
+    "username": "root",
+    "password": "155c26c8d611202944c7174be463c3b4:ab62f8afe4a23897ba22c4ce92893e4b",
+    "type": "ssh",
+    "encrypted": true,
+    "created_at": "2025-08-05T01:21:08.408Z",
+    "updated_at": "2025-08-05T01:21:08.408Z"
   }
 }

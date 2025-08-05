@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Пользователь, Комната, СостояниеПриложения } from '@/types';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 import { useSocket } from '@/hooks/useSocket';
@@ -205,12 +205,15 @@ export default function Home() {
     показатьУведомление(`Ошибка: ${ошибка}`);
   }, [показатьУведомление]);
 
-  const socketAPI = useSocket({
+  // ИСПРАВЛЕНИЕ: Мемоизируем параметры для useSocket чтобы избежать пересоздания
+  const socketParams = useMemo(() => ({
     серверUrl: webSocketURL,
     пользователь: состояние.текущий_пользователь,
     на_обновление_комнат,
     на_ошибку,
-  });
+  }), [webSocketURL, состояние.текущий_пользователь, на_обновление_комнат, на_ошибку]);
+
+  const socketAPI = useSocket(socketParams);
 
   // Деструктуризация для удобства
   const {
